@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp"]
+    }
+  },
+  "permissions": {
+    "allow": [
+      "mcp__playwright__*"
+    ]
+  }
+}
