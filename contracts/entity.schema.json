@@ -33,7 +33,7 @@
     "frequency": {
       "type": "number",
       "title": "Frequency",
-      "x-unit": "MHz",
+      "x-unit": "MHz"
     },
     "power": {
       "title": "Power",
@@ -49,6 +49,16 @@
       "title": "Azimuth",
       "minimum": 0,
       "maximum": 360,
+      "x-unit": "°",
+      "x-paired-with": "beam_width"
+    },
+    "beam_width": {
+      "type": "number",
+      "title": "Beam Width",
+      "description": "Angular width of the calculated sector in degrees, centred on azimuth. 360 means full 360° (default behaviour).",
+      "minimum": 1,
+      "maximum": 360,
+      "default": 360,
       "x-unit": "°"
     },
     "antenna_height": {
