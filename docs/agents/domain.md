@@ -8,6 +8,7 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`docs/adr/`** — read ADRs that touch the area you're about to work in.
 - **`research/*/research.md`** — pre-ADR technology research (backend language, frontend stack, tile delivery, etc.). Treat conclusions here as the default unless superseded by an ADR.
 - **`system-plan.md`** and **`prd-phase1-frontend.md`** — architecture and prior PRD context.
+- **`docs/agents/frontend-style.md`** — CSS architecture, design tokens, and layout rules. Read before writing any frontend component styling.
 
 If `CONTEXT.md` or `docs/adr/` don't exist yet, **proceed silently**. Don't flag their absence; don't suggest creating them upfront.
 
