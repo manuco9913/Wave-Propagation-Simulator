@@ -1,0 +1,455 @@
+<title>Wave Sim - Technical Panel Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Archivo:wght@500;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+  :root{
+    --page-bg:#eef0f3; --page-text:#1b2027; --page-muted:#6b7280; --page-border:#d7dbe1; --page-surface:#ffffff;
+  }
+  body{ background:var(--page-bg); color:var(--page-text); font-family:Inter, system-ui, sans-serif; }
+
+  .shell{ max-width:1320px; margin:0 auto; padding-block:28px 56px; }
+  .intro{ margin-bottom:20px; }
+  .intro h1{ font-size:22px; font-weight:700; margin:0 0 6px; letter-spacing:-0.01em; }
+  .intro p{ font-size:14px; color:var(--page-muted); margin:0; max-width:700px; line-height:1.5; }
+
+  .tabs{ display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 10px; }
+  .tab{ appearance:none; border:1px solid var(--page-border); background:var(--page-surface); color:var(--page-text);
+        font:inherit; font-size:13px; font-weight:600; padding:9px 16px; border-radius:999px; cursor:pointer;
+        display:flex; align-items:center; gap:8px; transition:border-color .15s, background .15s; }
+  .tab .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .tab:hover{ border-color:#b7bdc6; }
+  .tab[aria-selected="true"]{ background:var(--page-text); color:#fff; border-color:var(--page-text); }
+  .tab[aria-selected="true"] .dot{ outline:2px solid rgba(255,255,255,.55); outline-offset:1px; }
+
+  .tagline{ font-size:13px; color:var(--page-muted); margin:0 0 18px; min-height:18px; max-width:760px; line-height:1.5; }
+  .tagline b{ color:var(--page-text); }
+
+  .frame-scroll{ overflow-x:auto; border-radius:10px; padding:2px; }
+  .frame-scroll::-webkit-scrollbar{ height:10px; }
+
+  /* ===================== mock app (shared skeleton) ===================== */
+  .app{
+    width:1280px; height:800px; position:relative; display:flex; border:1px solid var(--color-border); overflow:hidden;
+    background:var(--color-bg); color:var(--color-text); font-family:var(--font-ui);
+    border-radius:var(--radius-outer,0px);
+  }
+  .app *{ box-sizing:border-box; }
+
+  .topbar{ position:absolute; top:0; left:0; right:0; height:48px; display:flex; align-items:center; justify-content:space-between;
+           padding:0 16px; border-bottom:var(--border-w) solid var(--color-border); background:var(--color-surface); z-index:5; }
+  .brand{ display:flex; align-items:center; gap:9px; font-size:13px; font-weight:700; letter-spacing:.01em; }
+  .brand .mark{ width:20px; height:20px; background:var(--color-accent); position:relative; flex:none; border-radius:var(--mark-radius,4px); }
+  .brand .mark::after{ content:""; position:absolute; inset:5px; border-radius:50%; border:2px solid #fff; }
+  .topbar-right{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--color-text-muted); font-family:var(--font-mono); }
+  .pill{ border:var(--border-w) solid var(--color-border); border-radius:var(--radius); padding:3px 9px; font-size:11px; font-weight:600;
+         display:inline-flex; align-items:center; gap:6px; background:var(--color-bg); }
+  .pill .ping{ width:6px; height:6px; border-radius:50%; background:var(--color-success); }
+
+  .app-body{ position:relative; flex:1; display:flex; margin-top:48px; height:calc(800px - 48px); }
+
+  /* -------- corner brackets (technical only) -------- */
+  .corner{ position:absolute; width:22px; height:22px; opacity:0; pointer-events:none; z-index:10; border-color:var(--color-accent); }
+  .corner.tl{ top:6px; left:6px; border-top:2px solid; border-left:2px solid; }
+  .corner.tr{ top:6px; right:6px; border-top:2px solid; border-right:2px solid; }
+  .corner.bl{ bottom:6px; left:6px; border-bottom:2px solid; border-left:2px solid; }
+  .corner.br{ bottom:6px; right:6px; border-bottom:2px solid; border-right:2px solid; }
+
+  /* -------- sidebar -------- */
+  .sidebar{ width:344px; flex:none; background:var(--color-surface); border-right:var(--border-w) solid var(--color-border);
+            display:flex; flex-direction:column; height:100%; background-image:var(--sidebar-bg-image,none); }
+  .sidebar-scroll{ flex:1; overflow-y:auto; padding: var(--space-2xl) var(--space-xl); display:flex; flex-direction:column; gap:var(--space-xl); }
+  .panel-title{ font-size:var(--font-size-lg); font-weight:var(--heading-weight,700); margin:0; line-height:var(--line-height-tight);
+                letter-spacing:var(--heading-tracking,-0.01em); text-transform:var(--heading-case,none); }
+  .section{ display:flex; flex-direction:column; gap:var(--space-md); position:relative; }
+  .section-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--color-text-muted);
+                   display:flex; align-items:center; gap:7px; }
+  .section-label::before{ content:var(--label-bar-content,""); }
+  [data-style="technical"] .section-label{ font-family:var(--font-mono); color:var(--color-accent); }
+  [data-style="technical"] .section-label::before{ content:"["; }
+  [data-style="technical"] .section-label::after{ content:"]"; }
+
+  .field{ display:flex; flex-direction:column; gap:var(--space-xs); }
+  .field label{ font-size:var(--font-size-sm); font-weight:600; color:var(--color-text-muted); }
+  .field-row{ display:flex; gap:var(--space-sm); }
+  .field-row .field{ flex:1; min-width:0; }
+
+  .input-wrap{ position:relative; display:flex; align-items:center; }
+  input[type="text"], input[type="number"], select{
+    width:100%; font:inherit; font-size:var(--font-size-base); color:var(--color-text);
+    background:var(--input-bg,var(--color-bg)); border:var(--border-w) solid var(--color-border); border-radius:var(--radius);
+    padding:var(--space-md); appearance:none; box-shadow:var(--input-shadow,none); transition:box-shadow .15s, border-color .15s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus{ outline:none; border-color:var(--color-accent); box-shadow:var(--focus-ring,none); }
+  .unit{ position:absolute; right:10px; font-size:11px; color:var(--color-text-muted); font-family:var(--font-mono); pointer-events:none; }
+  .mono{ font-family:var(--font-mono); }
+  .has-unit input{ padding-right:40px; }
+
+  .field.error input{ border-color:var(--color-danger); }
+  .error-msg{ font-size:11px; color:var(--color-danger); font-family:var(--font-mono); }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; }
+  .switch{ width:36px; height:21px; border-radius:999px; background:var(--color-border); position:relative; flex:none; cursor:pointer;
+           box-shadow:var(--switch-shadow,none); }
+  .switch.on{ background:var(--color-accent); }
+  .switch::after{ content:""; position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%; background:#fff; transition:left .15s; }
+  .switch.on::after{ left:17px; }
+
+  .entity-card{ border:var(--border-w) solid var(--color-border); border-radius:var(--radius); overflow:hidden;
+                border-left:var(--entity-stripe,var(--border-w) solid var(--color-border)); box-shadow:var(--card-shadow,none); }
+  .entity-head{ display:flex; align-items:center; justify-content:space-between; padding:var(--space-md) var(--space-lg);
+                background:var(--color-bg); font-size:var(--font-size-base); font-weight:600; }
+  .entity-head .idx{ width:22px; height:22px; border-radius:var(--badge-radius,50%); background:var(--badge-bg,var(--color-accent)); color:#fff;
+                      font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-right:9px; flex:none;
+                      box-shadow:var(--badge-shadow,none); }
+  .entity-head-left{ display:flex; align-items:center; }
+  .entity-remove{ border:none; background:transparent; color:var(--color-text-muted); font-size:16px; cursor:pointer; line-height:1; }
+  .entity-body{ padding:var(--space-lg); display:flex; flex-direction:column; gap:var(--space-lg); background:var(--color-surface); }
+
+  .btn{ font:inherit; font-size:var(--font-size-base); font-weight:700; border-radius:var(--radius); border:var(--border-w) solid transparent;
+        padding:var(--space-md) var(--space-lg); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px;
+        letter-spacing:var(--btn-tracking,0); text-transform:var(--btn-case,none); font-family:var(--btn-font,var(--font-ui)); }
+  .btn-ghost{ background:transparent; border-color:var(--color-border); color:var(--color-text); }
+  .btn-ghost:hover{ background:var(--color-bg); }
+  .btn-primary{ background:var(--btn-primary-bg,var(--color-accent)); color:#fff; box-shadow:var(--btn-shadow,none); }
+  .btn-primary:hover{ background:var(--color-accent-hover); }
+  .btn-block{ width:100%; }
+  .btn span.brk{ display:none; }
+  [data-style="technical"] .btn span.brk{ display:inline; }
+
+  .sidebar-footer{ padding:var(--space-lg) var(--space-xl); border-top:var(--border-w) solid var(--color-border); display:flex; flex-direction:column; gap:var(--space-sm);
+                    background:var(--footer-bg,transparent); }
+  .job-status{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--status-color,var(--color-text-muted)); font-family:var(--status-font,inherit); }
+  .job-status .spinner{ width:12px; height:12px; border-radius:50%; border:2px solid var(--color-border); border-top-color:var(--color-accent);
+                         animation:spin 0.9s linear infinite; flex:none; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .blink{ display:none; animation:blink 1s step-end infinite; font-family:var(--font-mono); color:var(--color-accent); font-weight:700; }
+  [data-style="technical"] .blink{ display:inline; }
+  @keyframes blink{ 50%{ opacity:0; } }
+  .progress-track{ height:5px; border-radius:999px; background:var(--color-border); overflow:hidden; }
+  .progress-fill{ height:100%; width:42%; background:var(--color-accent); }
+
+  /* -------- map area -------- */
+  .map{ position:relative; flex:1; overflow:hidden; background:var(--map-water); }
+  .map svg{ position:absolute; inset:0; width:100%; height:100%; }
+
+  .grid-overlay{ position:absolute; inset:0; z-index:1; opacity:0; pointer-events:none;
+    background-image:
+      repeating-linear-gradient(0deg, var(--color-accent) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(90deg, var(--color-accent) 0 1px, transparent 1px 32px);
+    background-size:32px 32px; }
+  [data-style="technical"] .grid-overlay{ opacity:.08; }
+
+  .crosshair{ position:absolute; left:155px; top:580px; width:46px; height:46px; transform:translate(-50%,-50%); z-index:2; opacity:0; pointer-events:none; }
+  [data-style="technical"] .crosshair{ opacity:.8; }
+  .crosshair::before, .crosshair::after{ content:""; position:absolute; background:var(--color-accent); }
+  .crosshair::before{ left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
+  .crosshair::after{ top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
+  .crosshair .ring{ position:absolute; inset:14px; border:1px solid var(--color-accent); border-radius:50%; }
+
+  .hud-ticks{ position:absolute; inset:0; z-index:2; opacity:0; pointer-events:none; font-family:var(--font-mono); font-size:9px; color:var(--color-accent); }
+  [data-style="technical"] .hud-ticks{ opacity:.85; }
+  .hud-ticks span{ position:absolute; }
+
+  .map-toolbar{ position:absolute; top:var(--space-lg); right:var(--space-lg); display:flex; gap:var(--space-sm); z-index:4; }
+  .zoom-ctl{ background:var(--panel-bg,var(--color-surface)); backdrop-filter:var(--panel-blur,none); border:var(--border-w) solid var(--color-border);
+             border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--shadow-float); }
+  .zoom-ctl button{ width:30px; height:30px; border:none; background:transparent; font-size:15px; cursor:pointer; color:var(--color-text); }
+  .zoom-ctl button:first-child{ border-bottom:var(--border-w) solid var(--color-border); }
+  .save-run{ background:var(--panel-bg,var(--color-surface)); backdrop-filter:var(--panel-blur,none); border:var(--border-w) solid var(--color-border);
+             border-radius:var(--radius); box-shadow:var(--shadow-float); display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:12px; font-weight:600; }
+
+  .entity-pin{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; z-index:3; }
+  .entity-pin .pin-dot{ width:17px; height:17px; border-radius:var(--pin-radius,50%); background:var(--color-accent); border:2px solid #fff;
+                        box-shadow:0 1px 4px rgba(0,0,0,.35); transform:var(--pin-rotate,none); }
+  .entity-pin .pin-stem{ width:2px; height:9px; background:var(--color-accent); }
+  .entity-pin .pin-label{ position:absolute; top:-21px; font-size:10px; font-weight:700; font-family:var(--font-mono);
+                           background:var(--pin-label-bg,var(--color-text)); color:var(--pin-label-fg,#fff); padding:2px 7px;
+                           border-radius:var(--pin-label-radius,4px); white-space:nowrap; border:var(--pin-label-border,none); }
+
+  .radius-ring{ position:absolute; border:var(--ring-width,1.5px) dashed var(--color-accent); border-radius:50%; opacity:.55; transform:translate(-50%,-50%); z-index:2; }
+
+  .legend{ position:absolute; bottom:var(--space-lg); right:var(--space-lg); background:var(--panel-bg,var(--color-surface)); backdrop-filter:var(--panel-blur,none);
+            border:var(--border-w) solid var(--color-border); border-radius:var(--radius); padding:var(--space-md) var(--space-lg); box-shadow:var(--shadow-float); z-index:4; }
+  .legend-title{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--color-text-muted); margin-bottom:6px; font-family:var(--font-mono); }
+  .legend-bar{ width:160px; height:8px; border-radius:var(--legend-radius,4px); background:linear-gradient(90deg,#2a52be,#2fa6a0,#e7c94c,#e2572b); margin-bottom:4px; }
+  .legend-scale{ display:flex; justify-content:space-between; font-size:10px; font-family:var(--font-mono); color:var(--color-text-muted); }
+
+  .scalebar{ position:absolute; bottom:var(--space-lg); left:var(--space-lg); display:flex; align-items:center; gap:6px; font-size:10px;
+             color:var(--color-text-muted); font-family:var(--font-mono); z-index:4; }
+  .scalebar .bar{ width:60px; height:3px; background:var(--color-text-muted); }
+
+  .height-slider{ position:absolute; bottom:var(--space-2xl); left:50%; transform:translateX(-50%); width:460px; background:var(--panel-bg,var(--color-surface));
+                   backdrop-filter:var(--panel-blur,none); border:var(--border-w) solid var(--color-border); border-radius:var(--radius); box-shadow:var(--shadow-float);
+                   padding:var(--space-lg) var(--space-xl); z-index:5; }
+  .height-slider-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--space-md); }
+  .height-slider-head .lbl{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--color-text-muted); font-family:var(--font-mono); }
+  .height-slider-head .val{ font-size:var(--height-val-size,var(--font-size-md)); font-weight:var(--height-val-weight,700); font-family:var(--font-mono); color:var(--height-val-color,var(--color-text)); }
+  .range-track{ position:relative; height:var(--track-h,4px); border-radius:999px; background:var(--color-border); }
+  .range-fill{ position:absolute; left:0; top:0; height:100%; width:38%; background:var(--color-accent); border-radius:999px; }
+  .range-thumb{ position:absolute; top:50%; left:38%; width:15px; height:15px; border-radius:var(--thumb-radius,50%); background:var(--color-accent);
+                border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4); transform:translate(-50%,-50%); }
+  .prefetch-dots{ display:flex; justify-content:center; gap:5px; margin-top:8px; }
+  .prefetch-dots span{ width:4px; height:4px; border-radius:50%; background:var(--color-border); }
+  .prefetch-dots span.active{ background:var(--color-accent); }
+
+  .heat-blob{ position:absolute; border-radius:50%; filter:blur(2px); mix-blend-mode:multiply; opacity:.75; z-index:1; }
+
+  /* ---- token readout ---- */
+  .tokens-panel{ margin-top:22px; border:1px solid var(--page-border); border-radius:10px; background:var(--page-surface); overflow:hidden; }
+  .tokens-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; cursor:pointer; user-select:none; }
+  .tokens-head h2{ font-size:14px; margin:0; font-weight:700; }
+  .tokens-head span.chev{ font-size:12px; color:var(--page-muted); transition:transform .15s; }
+  .tokens-panel.open .chev{ transform:rotate(180deg); }
+  .tokens-body{ display:none; padding:0 18px 18px; }
+  .tokens-panel.open .tokens-body{ display:block; }
+  .tok-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; font-size:12px; }
+  .tok-row{ display:flex; align-items:center; gap:8px; border:1px solid var(--page-border); border-radius:6px; padding:7px 9px; }
+  .tok-swatch{ width:16px; height:16px; border-radius:4px; flex:none; border:1px solid rgba(0,0,0,.08); }
+  .tok-name{ font-family:"JetBrains Mono", monospace; color:var(--page-muted); font-size:11px; }
+  .tok-val{ margin-left:auto; font-family:"JetBrains Mono", monospace; font-size:11px; }
+
+  @media (max-width: 760px){ .shell{ padding-inline:16px; } }
+</style>
+
+<div class="shell">
+  <div class="intro">
+    <h1>Reference mock — Dense Technical Instrument Panel</h1>
+    <p>Static baseline for the chosen look. Authoritative values live in docs/agents/frontend-style.md; this file shows how they combine on the main screen. Not production code.</p>
+  </div>
+
+    <p class="tagline" id="tagline"></p>
+
+  <div class="frame-scroll">
+    <div class="app" id="app">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <div class="topbar">
+        <div class="brand"><span class="mark"></span> Wave Propagation Simulator</div>
+        <div class="topbar-right">
+          <span class="pill"><span class="ping"></span> Offline / air-gapped</span>
+          <span>Scenario: Coastal Corridor — Run 4</span>
+        </div>
+      </div>
+      <div class="app-body">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+          <div class="sidebar-scroll">
+            <div><p class="panel-title">Scenario</p></div>
+
+            <div class="section">
+              <div class="section-label">Parameters</div>
+              <div class="field">
+                <label>Name</label>
+                <input type="text" value="Coastal Corridor — Run 4">
+              </div>
+              <div class="field-row">
+                <div class="field has-unit">
+                  <label>Height min</label>
+                  <div class="input-wrap"><input type="number" value="0"><span class="unit">m</span></div>
+                </div>
+                <div class="field has-unit">
+                  <label>Height max</label>
+                  <div class="input-wrap"><input type="number" value="500"><span class="unit">m</span></div>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field has-unit error">
+                  <label>Angular resolution</label>
+                  <div class="input-wrap"><input type="number" value="0.005"><span class="unit">°</span></div>
+                  <span class="error-msg">Must be ≥ 0.01°</span>
+                </div>
+                <div class="field has-unit">
+                  <label>Grid cell size</label>
+                  <div class="input-wrap"><input type="number" value="100"><span class="unit">m</span></div>
+                </div>
+              </div>
+              <div class="field">
+                <label>Combination method</label>
+                <select><option>Max</option><option>Mean</option><option>Sum</option></select>
+              </div>
+              <div class="toggle-row">
+                <label style="font-size:var(--font-size-base); font-weight:500; color:var(--color-text);">Account for terrain</label>
+                <div class="switch on"></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-label">Entities (2/10)</div>
+
+              <div class="entity-card">
+                <div class="entity-head">
+                  <div class="entity-head-left"><span class="idx">1</span> TX-Alpha</div>
+                  <button class="entity-remove">×</button>
+                </div>
+                <div class="entity-body">
+                  <div class="field-row">
+                    <div class="field"><label>Lat</label><input class="mono" type="text" value="44.8481"></div>
+                    <div class="field"><label>Lon</label><input class="mono" type="text" value="13.8450"></div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field has-unit"><label>Frequency</label><div class="input-wrap"><input type="number" value="2400"><span class="unit">MHz</span></div></div>
+                    <div class="field has-unit"><label>Power</label><div class="input-wrap"><input type="number" value="33"><span class="unit">dBm</span></div></div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field has-unit"><label>Azimuth</label><div class="input-wrap"><input type="number" value="90"><span class="unit">°</span></div></div>
+                    <div class="field has-unit"><label>Radius</label><div class="input-wrap"><input type="number" value="12"><span class="unit">km</span></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="entity-card">
+                <div class="entity-head">
+                  <div class="entity-head-left"><span class="idx">2</span> TX-Bravo</div>
+                  <button class="entity-remove">×</button>
+                </div>
+              </div>
+
+              <button class="btn btn-ghost btn-block"><span class="brk">[ </span>+ Add entity<span class="brk"> ]</span></button>
+            </div>
+          </div>
+
+          <div class="sidebar-footer">
+            <div class="job-status"><span class="spinner"></span> Preprocessing terrain — 42%<span class="blink">_</span></div>
+            <div class="progress-track"><div class="progress-fill"></div></div>
+            <button class="btn btn-primary btn-block"><span class="brk">[ </span>Run simulation<span class="brk"> ]</span></button>
+          </div>
+        </div>
+
+        <!-- MAP -->
+        <div class="map">
+          <svg viewBox="0 0 940 752" preserveAspectRatio="none">
+            <rect x="0" y="0" width="940" height="752" fill="var(--map-water)"/>
+            <path d="M -20 120 Q 120 80 220 160 T 420 180 Q 560 140 700 220 T 980 260 L 980 800 L -20 800 Z" fill="var(--map-land)"/>
+            <path d="M 60 300 Q 220 260 300 340 T 540 360" stroke="var(--map-contour)" stroke-width="1.5" fill="none" opacity=".6"/>
+            <path d="M 100 420 Q 260 380 360 440 T 600 470" stroke="var(--map-contour)" stroke-width="1.5" fill="none" opacity=".6"/>
+            <path d="M 40 540 Q 240 520 380 560 T 700 590" stroke="var(--map-contour)" stroke-width="1.5" fill="none" opacity=".45"/>
+            <path d="M 160 90 L 150 420" stroke="var(--map-road)" stroke-width="2" opacity=".5"/>
+            <path d="M 330 180 L 420 560" stroke="var(--map-road)" stroke-width="2" opacity=".5"/>
+            <path d="M 420 560 L 700 610" stroke="var(--map-road)" stroke-width="2" opacity=".5"/>
+          </svg>
+
+          <div class="grid-overlay"></div>
+          <div class="hud-ticks" id="hudTicks"></div>
+          <div class="crosshair"><div class="ring"></div></div>
+
+          <div class="heat-blob" style="width:320px; height:320px; left:230px; top:200px; background:radial-gradient(circle, #e2572b 0%, #e7c94c 35%, #2fa6a0 62%, transparent 85%);"></div>
+          <div class="heat-blob" style="width:260px; height:260px; left:430px; top:360px; background:radial-gradient(circle, #e2572b 0%, #e7c94c 40%, #2fa6a0 68%, transparent 88%);"></div>
+
+          <div class="radius-ring" style="width:320px; height:320px; left:330px; top:300px;"></div>
+          <div class="radius-ring" style="width:260px; height:260px; left:510px; top:430px;"></div>
+
+          <div class="entity-pin" style="left:330px; top:300px;">
+            <span class="pin-label">TX-Alpha</span>
+            <div class="pin-dot"></div>
+            <div class="pin-stem"></div>
+          </div>
+          <div class="entity-pin" style="left:510px; top:430px;">
+            <span class="pin-label">TX-Bravo</span>
+            <div class="pin-dot"></div>
+            <div class="pin-stem"></div>
+          </div>
+
+          <div class="map-toolbar">
+            <div class="save-run"><span>💾</span> Save run</div>
+            <div class="zoom-ctl"><button>+</button><button>−</button></div>
+          </div>
+
+          <div class="scalebar"><div class="bar"></div> 10 km</div>
+
+          <div class="legend">
+            <div class="legend-title">Signal (dBm)</div>
+            <div class="legend-bar"></div>
+            <div class="legend-scale"><span>−110</span><span>−90</span><span>−70</span><span>−40</span></div>
+          </div>
+
+          <div class="height-slider">
+            <div class="height-slider-head"><span class="lbl">Height</span><span class="val">190 m</span></div>
+            <div class="range-track"><div class="range-fill"></div><div class="range-thumb"></div></div>
+            <div class="prefetch-dots"><span></span><span class="active"></span><span class="active"></span><span class="active"></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tokens-panel" id="tokensPanel">
+    <div class="tokens-head" id="tokensHead">
+      <h2>Token values for this look</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="tokens-body"><div class="tok-grid" id="tokGrid"></div></div>
+  </div>
+</div>
+
+<script>
+  const styles = [
+    {
+      id:'technical', name:'Dense Technical Instrument Panel', dot:'#55713f',
+      tagline:'Monospace condensed labels, corner-bracket framing, HUD crosshair + ruler ticks, bracketed [ buttons ], faint 32px grid. Leans hardest into the defense angle.',
+      vars:{
+        '--color-bg':'#f1f2ec', '--color-surface':'#f8f9f4', '--color-border':'#3a3f35',
+        '--color-text':'#20241d', '--color-text-muted':'#5f6456',
+        '--color-accent':'#55713f', '--color-accent-hover':'#44592f',
+        '--color-success':'#3f8f52', '--color-warning':'#c98a1b', '--color-danger':'#b3412c',
+        '--radius':'0px', '--radius-outer':'0px', '--mark-radius':'0px',
+        '--shadow-float':'none', '--border-w':'1px',
+        '--font-ui':"'IBM Plex Sans Condensed', sans-serif", '--font-mono':"'IBM Plex Mono', monospace",
+        '--heading-weight':'700', '--heading-tracking':'.02em', '--heading-case':'uppercase',
+        '--status-font':'var(--font-mono)', '--status-color':'var(--color-accent)',
+        '--btn-font':'var(--font-mono)',
+        '--pin-radius':'0px', '--pin-rotate':'rotate(45deg)', '--pin-label-radius':'0px',
+        '--ring-width':'1px', '--legend-radius':'0px', '--thumb-radius':'0px',
+        '--map-water':'#e7e9df', '--map-land':'#eceee3', '--map-contour':'#8a9178', '--map-road':'#6c7360'
+      }
+    }
+  ];
+
+  const spacing = { '--space-xs':'0.25rem', '--space-sm':'0.5rem', '--space-md':'0.75rem', '--space-lg':'1rem', '--space-xl':'1.5rem', '--space-2xl':'2rem', '--space-3xl':'3rem' };
+  const type = { '--font-size-sm':'12px', '--font-size-base':'14px', '--font-size-md':'16px', '--font-size-lg':'20px', '--font-size-xl':'28px', '--line-height-tight':'1.2', '--line-height-normal':'1.5' };
+
+  const app = document.getElementById('app');
+    const taglineEl = document.getElementById('tagline');
+  const tokGrid = document.getElementById('tokGrid');
+  const hudTicks = document.getElementById('hudTicks');
+
+  Object.entries(spacing).forEach(([k,v]) => app.style.setProperty(k,v));
+  Object.entries(type).forEach(([k,v]) => app.style.setProperty(k,v));
+
+  // reset all custom overrides between switches, then apply only this style's vars
+  const allKeys = new Set();
+  styles.forEach(s => Object.keys(s.vars).forEach(k => allKeys.add(k)));
+
+  for (let x = 40; x <= 900; x += 140){
+    const t = document.createElement('span'); t.style.left = x+'px'; t.style.top='4px'; t.textContent = (x).toString(); hudTicks.appendChild(t);
+  }
+  for (let y = 60; y <= 700; y += 140){
+    const t = document.createElement('span'); t.style.left = '4px'; t.style.top = y+'px'; t.textContent = (y).toString(); hudTicks.appendChild(t);
+  }
+
+  function applyStyle(style){
+    allKeys.forEach(k => app.style.removeProperty(k));
+    Object.entries(style.vars).forEach(([k,v]) => app.style.setProperty(k,v));
+    app.setAttribute('data-style', style.id);
+    taglineEl.innerHTML = style.tagline;
+    
+
+    tokGrid.innerHTML = '';
+    const colorKeys = Object.keys(style.vars).filter(k => k.startsWith('--color-'));
+    const otherKeys = Object.keys(style.vars).filter(k => !colorKeys.includes(k));
+    [...colorKeys, ...otherKeys].forEach(k => {
+      const v = style.vars[k];
+      const row = document.createElement('div');
+      row.className = 'tok-row';
+      const isColor = k.startsWith('--color-') && /^#/.test(v);
+      row.innerHTML = (isColor ? `<span class="tok-swatch" style="background:${v}"></span>` : '') +
+        `<span class="tok-name">${k}</span><span class="tok-val">${v}</span>`;
+      tokGrid.appendChild(row);
+    });
+  }
+
+  
+  let initial = styles[0];
+  applyStyle(initial);
+
+  const tokensPanel = document.getElementById('tokensPanel');
+  document.getElementById('tokensHead').addEventListener('click', () => tokensPanel.classList.toggle('open'));
+</script>

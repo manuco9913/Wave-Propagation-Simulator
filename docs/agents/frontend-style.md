@@ -1,15 +1,23 @@
 # Frontend Style Guide
 
-Status: colors, font family, and exact numeric values are **placeholders** pending a separate design pass. Structure (token names, scale shape, rules) is final.
+Status: **look decided — "Dense Technical Instrument Panel"** (chosen from four mocks). Color, font, and shape values below are final; spacing and type-size numbers are the original placeholders, confirmed as-is. Structure (token names, scale shape, rules) is unchanged.
 
-## For the design pass
+## Visual language
 
-Everything else in this doc — what the product does, who uses it, the research docs — is in the rest of the repo; read that instead of relying on this file for context.
+Dense technical instrument panel: reads as a defense/avionics console, not a generic SaaS form. Flat, square, monospace-forward, high information density.
 
-Two things this doc can't tell you that aren't derivable by reading the repo:
+- **Square everything** — `--radius: 0`, no rounded corners anywhere (inputs, buttons, panels, map pins, slider thumb).
+- **Hairline structure** — 1px borders in a dark olive-charcoal (`--color-border`), not light gray. Borders do the work shadows would do elsewhere.
+- **Type pairing** — IBM Plex Sans Condensed for UI text and headings (headings uppercase, `letter-spacing: .02em`); IBM Plex Mono for all numeric/data text: units, lat/lon, legend scale, slider value, status lines, buttons.
+- **Bracketed labels** — section labels and buttons render as `[ LABEL ]` (brackets via `::before`/`::after`, not in the markup). Section labels use `--color-accent` + mono.
+- **HUD framing** (map + app frame only): 2px accent corner brackets at the four corners of the app frame; faint 32px accent grid over the map (`opacity: .08`); crosshair reticle and ruler ticks along the map's top/left edges.
+- **Map markers** — entity pins are 45°-rotated squares (diamond blips), radius rings are 1px dashed accent circles, slider thumb is square.
+- **Status lines** — job progress text is mono, accent-colored, with a blinking `_` cursor.
+- **Floating elements** (legend, height slider, map toolbar, modals) have no shadow; they separate from the map with a 1px `--color-border` border. Modals add a scrim behind them.
 
-- **Taste call**: should read as a polished product, not a bare engineering tool — flat and minimal is the direction (see rules below), but "flat" shouldn't mean "default browser styling."
-- **Deliverable**: a hex value for each color token below, one font choice (or a heading/body pairing), and a pass over the placeholder spacing/type numbers — confirm or adjust them. Return it as a filled-in `tokens.css` (or the equivalent values mapped to the token names below) so it drops in directly.
+**Visual baseline:** open [`design-reference/technical-panel.html`](design-reference/technical-panel.html) in a browser. It is a static mock of the main screen (sidebar form + entity cards, map with pins/rings/heatmap/legend, height slider, job status) in this exact look, with a token readout at the bottom. Treat it as the target to match, not as code to copy: it is one self-contained file with inline CSS, whereas the app uses CSS Modules + `tokens.css`. If the mock and the values in this doc disagree, this doc wins.
+
+Rejected directions (don't revisit unless asked): bold/graphic, refined premium minimal, soft layered depth. The original "bland" feedback was about shapes and hierarchy, not color — palette swaps on a plain boxy layout will not satisfy it.
 
 ## CSS approach
 
@@ -23,22 +31,24 @@ Two things this doc can't tell you that aren't derivable by reading the repo:
 
 All tokens live in one file, `src/styles/tokens.css`, imported once at the app root. Nothing else defines a color, size, or spacing value directly — everything references a token.
 
-### Color (placeholder values — real palette TBD)
+### Color (final)
 
-Roles needed, not final hex values:
+Light, slightly green-tinted paper neutrals with an olive accent.
 
 ```
---color-bg
---color-surface        /* panels, cards */
---color-border
---color-text
---color-text-muted
---color-accent          /* primary interactive */
---color-accent-hover
---color-success
---color-warning
---color-danger
+--color-bg:           #f1f2ec;
+--color-surface:      #f8f9f4;   /* panels, cards */
+--color-border:       #3a3f35;
+--color-text:         #20241d;
+--color-text-muted:   #5f6456;   /* 5.7:1 on surface */
+--color-accent:       #55713f;   /* primary interactive; 5.5:1 with white text */
+--color-accent-hover: #44592f;
+--color-success:      #3f8f52;
+--color-warning:      #c98a1b;
+--color-danger:       #b3412c;
 ```
+
+Map base colors used in the mock (water `#e7e9df`, land `#eceee3`, contour `#8a9178`, road `#6c7360`) are illustrative only — map styling is handled with the map/heatmap work, not this file.
 
 Light theme only for v1. Heatmap/map colors are **out of this system** — handled separately per `research/frontend/research.md`'s resolved decision (fixed palette, user-adjustable breakpoints) and the dataviz skill.
 
@@ -58,7 +68,12 @@ Light theme only for v1. Heatmap/map colors are **out of this system** — handl
 
 **Rule:** layout regions use flexible sizing, not fixed widths — e.g. sidebar width as `clamp(280px, 22vw, 400px)`, not a fixed `px`.
 
-### Typography — 5 steps (placeholder values, font-family TBD)
+### Typography — 5 steps (sizes confirmed; fonts final)
+
+```
+--font-ui:   'IBM Plex Sans Condensed', sans-serif;
+--font-mono: 'IBM Plex Mono', monospace;
+```
 
 | Token | Placeholder | Use |
 |---|---|---|
@@ -76,11 +91,11 @@ Light theme only for v1. Heatmap/map colors are **out of this system** — handl
 ### Shape
 
 ```
---radius            /* single value, applied uniformly to inputs/buttons/panels */
---shadow-float       /* single value, used only for things that float above the page: modals, dropdowns */
+--radius: 0;           /* single value, applied uniformly to inputs/buttons/panels */
+--shadow-float: none;  /* floating things use a 1px border (+ scrim for modals) instead */
 ```
 
-No shadow on static panels/cards — flat by default. Rounding and shadow are both single values, not scales — this isn't a system that needs many levels of elevation.
+No shadow on static panels/cards — flat by default. Rounding and shadow are both single values, not scales — this isn't a system that needs many levels of elevation. `--shadow-float` stays as a token (set to `none`) so a shadow can be introduced later without touching components.
 
 ### Scope boundaries
 
