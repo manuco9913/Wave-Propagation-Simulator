@@ -10,7 +10,7 @@ Dense technical instrument panel: reads as a defense/avionics console, not a gen
 - **Hairline structure** — 1px borders in a dark olive-charcoal (`--color-border`), not light gray. Borders do the work shadows would do elsewhere.
 - **Type pairing** — IBM Plex Sans Condensed for UI text and headings (headings uppercase, `letter-spacing: .02em`); IBM Plex Mono for all numeric/data text: units, lat/lon, legend scale, slider value, status lines, buttons.
 - **Bracketed labels** — section labels and buttons render as `[ LABEL ]` (brackets via `::before`/`::after`, not in the markup). Section labels use `--color-accent` + mono.
-- **HUD framing** (map + app frame only): 2px accent corner brackets at the four corners of the app frame; faint 32px accent grid over the map (`opacity: .08`); crosshair reticle and ruler ticks along the map's top/left edges.
+- **HUD framing** (map + app frame only): 2px accent corner brackets at the four corners of the app frame; crosshair reticle and ruler ticks along the map's top/left edges; and the real-distance map grid (see "Map grid" below).
 - **Map markers** — entity pins are 45°-rotated squares (diamond blips), radius rings are 1px dashed accent circles, slider thumb is square.
 - **Status lines** — job progress text is mono, accent-colored, with a blinking `_` cursor.
 - **Floating elements** (legend, height slider, map toolbar, modals) have no shadow; they separate from the map with a 1px `--color-border` border. Modals add a scrim behind them.
@@ -96,6 +96,18 @@ Light theme only for v1. Heatmap/map colors are **out of this system** — handl
 ```
 
 No shadow on static panels/cards — flat by default. Rounding and shadow are both single values, not scales — this isn't a system that needs many levels of elevation. `--shadow-float` stays as a token (set to `none`) so a shadow can be introduced later without touching components.
+
+### Map grid (required)
+
+A checkered grid is always drawn over the map, anchored to real ground distance, not screen pixels. Not user-toggleable.
+
+- **Cell size** comes from the current zoom and snaps to round steps (10 m, 20 m, 50 m, 100 m, 200 m, 500 m, 1 km, 2 km, 5 km, 10 km, …), aiming for roughly 80–160 px per cell. **10 m is the smallest cell**: clamp there even if zoomed in further (cells then exceed 160 px). The scale bar shows the current cell size.
+- **Stacking**: drawn over the heatmap but **below the entity pins and radius rings**, so markers stay crisp and draggable. Also below UI chrome (legend, height slider, toolbar). Lines are 1px with `pointer-events: none`.
+- **Re-render on every zoom and pan** (the map's `move` event). Meters per pixel = `156543.03 × cos(lat) / 2^zoom`; pick the nearest round step. Anchor lines to fixed world coordinates, not the screen, so they stay put when the map pans. A fixed CSS grid cannot do this.
+- **Projection**: lat/lon lines are not equal distances apart, and east-west vs north-south spacing diverges with latitude. For a true "1 km cell" grid, draw it in a local metric frame (UTM zone or a local east/north frame) around the scenario. This also matches the simulator's 100 m output cells and per-entity radius in km.
+- **Implementation layer**: the heatmap is a Deck.gl layer, so a MapLibre line layer would render underneath it. Draw the grid as a Deck.gl layer added after the heatmap layer (or a canvas/SVG overlay above the heatmap), and keep the pins and rings above it. Do not put it in the MapLibre style — that also keeps it unchanged through the PMTiles swap.
+- **Color**: `--color-border` (olive-charcoal) at roughly `.2`–`.3` opacity. An accent-colored line at `.08` disappears on the saturated red/yellow heatmap areas. Verify against the heatmap's reds and blues.
+- **Reference mock**: `design-reference/technical-panel.html` uses a fixed 96px CSS grid purely as a stand-in for weight and stacking order. It does not demonstrate real-distance scaling.
 
 ### Scope boundaries
 

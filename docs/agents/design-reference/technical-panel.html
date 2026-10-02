@@ -132,21 +132,23 @@
   .map{ position:relative; flex:1; overflow:hidden; background:var(--map-water); }
   .map svg{ position:absolute; inset:0; width:100%; height:100%; }
 
-  .grid-overlay{ position:absolute; inset:0; z-index:1; opacity:0; pointer-events:none;
+  /* STAND-IN: the real grid is drawn in JS at fixed ground distances (see "Map grid" in frontend-style.md).
+     This fixed 96px CSS grid only shows the visual weight and stacking: above heatmap, below rings/pins and UI chrome. */
+  .grid-overlay{ position:absolute; inset:0; z-index:2; opacity:0; pointer-events:none;
     background-image:
-      repeating-linear-gradient(0deg, var(--color-accent) 0 1px, transparent 1px 32px),
-      repeating-linear-gradient(90deg, var(--color-accent) 0 1px, transparent 1px 32px);
-    background-size:32px 32px; }
-  [data-style="technical"] .grid-overlay{ opacity:.08; }
+      repeating-linear-gradient(0deg, var(--color-border) 0 1px, transparent 1px 96px),
+      repeating-linear-gradient(90deg, var(--color-border) 0 1px, transparent 1px 96px);
+    background-size:96px 96px; }
+  [data-style="technical"] .grid-overlay{ opacity:.25; }
 
-  .crosshair{ position:absolute; left:155px; top:580px; width:46px; height:46px; transform:translate(-50%,-50%); z-index:2; opacity:0; pointer-events:none; }
+  .crosshair{ position:absolute; left:155px; top:580px; width:46px; height:46px; transform:translate(-50%,-50%); z-index:3; opacity:0; pointer-events:none; }
   [data-style="technical"] .crosshair{ opacity:.8; }
   .crosshair::before, .crosshair::after{ content:""; position:absolute; background:var(--color-accent); }
   .crosshair::before{ left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
   .crosshair::after{ top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
   .crosshair .ring{ position:absolute; inset:14px; border:1px solid var(--color-accent); border-radius:50%; }
 
-  .hud-ticks{ position:absolute; inset:0; z-index:2; opacity:0; pointer-events:none; font-family:var(--font-mono); font-size:9px; color:var(--color-accent); }
+  .hud-ticks{ position:absolute; inset:0; z-index:3; opacity:0; pointer-events:none; font-family:var(--font-mono); font-size:9px; color:var(--color-accent); }
   [data-style="technical"] .hud-ticks{ opacity:.85; }
   .hud-ticks span{ position:absolute; }
 
@@ -166,7 +168,7 @@
                            background:var(--pin-label-bg,var(--color-text)); color:var(--pin-label-fg,#fff); padding:2px 7px;
                            border-radius:var(--pin-label-radius,4px); white-space:nowrap; border:var(--pin-label-border,none); }
 
-  .radius-ring{ position:absolute; border:var(--ring-width,1.5px) dashed var(--color-accent); border-radius:50%; opacity:.55; transform:translate(-50%,-50%); z-index:2; }
+  .radius-ring{ position:absolute; border:var(--ring-width,1.5px) dashed var(--color-accent); border-radius:50%; opacity:.55; transform:translate(-50%,-50%); z-index:3; }
 
   .legend{ position:absolute; bottom:var(--space-lg); right:var(--space-lg); background:var(--panel-bg,var(--color-surface)); backdrop-filter:var(--panel-blur,none);
             border:var(--border-w) solid var(--color-border); border-radius:var(--radius); padding:var(--space-md) var(--space-lg); box-shadow:var(--shadow-float); z-index:4; }
@@ -176,7 +178,7 @@
 
   .scalebar{ position:absolute; bottom:var(--space-lg); left:var(--space-lg); display:flex; align-items:center; gap:6px; font-size:10px;
              color:var(--color-text-muted); font-family:var(--font-mono); z-index:4; }
-  .scalebar .bar{ width:60px; height:3px; background:var(--color-text-muted); }
+  .scalebar .bar{ width:96px; height:3px; background:var(--color-text-muted); }
 
   .height-slider{ position:absolute; bottom:var(--space-2xl); left:50%; transform:translateX(-50%); width:460px; background:var(--panel-bg,var(--color-surface));
                    backdrop-filter:var(--panel-blur,none); border:var(--border-w) solid var(--color-border); border-radius:var(--radius); box-shadow:var(--shadow-float);
@@ -214,7 +216,7 @@
 <div class="shell">
   <div class="intro">
     <h1>Reference mock — Dense Technical Instrument Panel</h1>
-    <p>Static baseline for the chosen look. Authoritative values live in docs/agents/frontend-style.md; this file shows how they combine on the main screen. Not production code.</p>
+    <p>Static baseline for the chosen look. Authoritative values live in docs/agents/frontend-style.md; this file shows how they combine on the main screen. Not production code. The map grid here is a fixed 96px stand-in for the real ground-distance grid.</p>
   </div>
 
     <p class="tagline" id="tagline"></p>
@@ -327,7 +329,6 @@
             <path d="M 420 560 L 700 610" stroke="var(--map-road)" stroke-width="2" opacity=".5"/>
           </svg>
 
-          <div class="grid-overlay"></div>
           <div class="hud-ticks" id="hudTicks"></div>
           <div class="crosshair"><div class="ring"></div></div>
 
@@ -348,12 +349,14 @@
             <div class="pin-stem"></div>
           </div>
 
+          <div class="grid-overlay"></div>
+
           <div class="map-toolbar">
             <div class="save-run"><span>💾</span> Save run</div>
             <div class="zoom-ctl"><button>+</button><button>−</button></div>
           </div>
 
-          <div class="scalebar"><div class="bar"></div> 10 km</div>
+          <div class="scalebar"><div class="bar"></div> cell = 5 km</div>
 
           <div class="legend">
             <div class="legend-title">Signal (dBm)</div>
@@ -384,7 +387,7 @@
   const styles = [
     {
       id:'technical', name:'Dense Technical Instrument Panel', dot:'#55713f',
-      tagline:'Monospace condensed labels, corner-bracket framing, HUD crosshair + ruler ticks, bracketed [ buttons ], faint 32px grid. Leans hardest into the defense angle.',
+      tagline:'Monospace condensed labels, corner-bracket framing, HUD crosshair + ruler ticks, bracketed [ buttons ], ground-distance map grid (stand-in here). Leans hardest into the defense angle.',
       vars:{
         '--color-bg':'#f1f2ec', '--color-surface':'#f8f9f4', '--color-border':'#3a3f35',
         '--color-text':'#20241d', '--color-text-muted':'#5f6456',
