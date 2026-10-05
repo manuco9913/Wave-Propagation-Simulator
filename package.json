@@ -1,0 +1,12 @@
+{
+  "name": "wave-propagation-simulator",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "dev": "pnpm --dir frontend dev",
+    "dev:backend": "cd backend && uv run uvicorn app.main:app --reload --port 8000",
+    "test": "pnpm --dir frontend test && cd backend && uv run pytest -q",
+    "typecheck": "pnpm --dir frontend typecheck"
+  }
+}
