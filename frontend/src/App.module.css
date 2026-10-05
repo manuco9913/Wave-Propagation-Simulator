@@ -12,14 +12,14 @@
   position: absolute;
   width: 22px;
   height: 22px;
-  border-color: var(--color-accent);
+  border: 0 solid var(--color-accent);
   pointer-events: none;
   z-index: 10;
 }
-.tl { top: 6px; left: 6px; border-top: 2px solid; border-left: 2px solid; }
-.tr { top: 6px; right: 6px; border-top: 2px solid; border-right: 2px solid; }
-.bl { bottom: 6px; left: 6px; border-bottom: 2px solid; border-left: 2px solid; }
-.br { bottom: 6px; right: 6px; border-bottom: 2px solid; border-right: 2px solid; }
+.tl { top: 6px; left: 6px; border-top-width: 2px; border-left-width: 2px; }
+.tr { top: 6px; right: 6px; border-top-width: 2px; border-right-width: 2px; }
+.bl { bottom: 6px; left: 6px; border-bottom-width: 2px; border-left-width: 2px; }
+.br { bottom: 6px; right: 6px; border-bottom-width: 2px; border-right-width: 2px; }
 
 .topbar {
   flex: none;
