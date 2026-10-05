@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { fetchSchemas } from "./api";
 import styles from "./App.module.css";
+import { MapView, type MapEntity } from "./MapView";
 
 type Status = "loading" | "ready" | "error";
 
 export function App() {
   const [status, setStatus] = useState<Status>("loading");
+  const [entity, setEntity] = useState<MapEntity | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +40,9 @@ export function App() {
           <h2 className={styles.title}>Scenario</h2>
           <div className={styles.label}>Entities</div>
         </aside>
-        <main className={styles.map} aria-label="Map" />
+        <main className={styles.map}>
+          <MapView entity={entity} onEntityChange={setEntity} />
+        </main>
       </div>
     </div>
   );
