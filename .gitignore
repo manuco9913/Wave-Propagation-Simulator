@@ -41,3 +41,4 @@ desktop.ini
 
 # Playwright MCP runtime output
 .playwright-mcp/
+.pnpm-store/
