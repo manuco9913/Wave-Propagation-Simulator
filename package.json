@@ -16,6 +16,7 @@
     "check": "pnpm run check:fast && pnpm run test"
   },
   "devDependencies": {
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.9",
     "pyright": "^1.1.414"
   }

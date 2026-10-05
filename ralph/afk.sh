@@ -16,6 +16,9 @@ require_image
 RALPH_BRANCH=$(ralph_branch)
 echo "Ralph working on branch $RALPH_BRANCH"
 
+# Dependencies live in container volumes (see common.sh); refresh them before the loop.
+install_deps
+
 # node: stream assistant text and a one-line summary of each tool call as they arrive
 stream_text_node='
 process.stdin.setEncoding("utf8");

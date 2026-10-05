@@ -20,7 +20,8 @@ Architecture decisions (the simulation engine boundary, the job queue, the stack
 | `typecheck` | `tsc` (strict + extras below) | pyright (strict) |
 | `test` | vitest | pytest |
 
-- The **pre-commit hook** (`.githooks/pre-commit`) runs everything except tests. CI
+- The **pre-commit hook** (`.githooks/pre-commit`, via `lint-staged.config.mjs`) formats and
+  lint-fixes the staged files, then typechecks; it doesn't run tests. CI
   (`.github/workflows/check.yml`) runs all of it on every push and PR. The Ralph loop runs it before
   each commit.
 - Never bypass the hook (`--no-verify`) or CI. If a check is wrong, fix the check in its own commit

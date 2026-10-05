@@ -53,17 +53,50 @@ clean_env_file() {
   echo "$out"
 }
 
+# The container's installed dependencies live in named volumes mounted over the repo paths,
+# so they never land in the shared folder: the host keeps its own native node_modules/.venv
+# (Windows can't use Linux binaries or the container's symlinks), and the container avoids the
+# slow bind mount for dependency I/O. The pnpm store and uv cache persist across --rm runs.
+RALPH_VOLUMES=(
+  "ralph-root-node-modules:/workspace/node_modules"
+  "ralph-frontend-node-modules:/workspace/frontend/node_modules"
+  "ralph-backend-venv:/workspace/backend/.venv"
+  "ralph-pnpm-store:/home/agent/.pnpm-store"
+  "ralph-uv-cache:/home/agent/.cache/uv"
+)
+
+# New named volumes are root-owned; hand them to the container's agent user once.
+ensure_volumes() {
+  local spec name args=() missing=0
+  for spec in "${RALPH_VOLUMES[@]}"; do
+    name=${spec%%:*}
+    docker volume inspect "$name" >/dev/null 2>&1 || missing=1
+    args+=(-v "$name:/vol/$name")
+  done
+  [ "$missing" = 0 ] && return
+  MSYS_NO_PATHCONV=1 docker run --rm -u root "${args[@]}" "$IMAGE" chown -R agent:agent /vol >/dev/null
+}
+
+# Install/refresh the container's dependencies (no-op when already up to date).
+install_deps() {
+  run_in_container bash -c 'pnpm install --frozen-lockfile --reporter=silent && cd backend && uv sync --locked --quiet'
+}
+
 # Run a command in a throwaway container that can only see the repo (mounted at /workspace).
 # Git inside the container needs: the mount marked safe (owned by a different uid),
 # the host's line-ending setting (else every file shows as modified), and a commit identity.
 # Pushes authenticate through gh (GH_TOKEN from .env) and are limited by the image's
 # pre-push hook to $RALPH_BRANCH.
 run_in_container() {
-  local env_file rc
+  local env_file rc spec vols=()
+  ensure_volumes
+  for spec in "${RALPH_VOLUMES[@]}"; do vols+=(-v "$spec"); done
   env_file=$(clean_env_file)
 
   MSYS_NO_PATHCONV=1 docker run --rm \
     -v "$(cd "$REPO_ROOT" && (pwd -W 2>/dev/null || pwd)):/workspace" \
+    "${vols[@]}" \
+    -e npm_config_store_dir=/home/agent/.pnpm-store \
     -w /workspace \
     --env-file "$(cygpath -w "$env_file" 2>/dev/null || echo "$env_file")" \
     -e IS_SANDBOX=1 \
