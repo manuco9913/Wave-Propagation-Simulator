@@ -1,10 +1,10 @@
 # ISSUES
 
-GitHub issues are provided at start of context. Parse it to get open issues with their bodies and comments.
+`<open_afk_issues>` lists open AFK issues, one per line (number, title, labels) — titles only. Pick a task from the list, then fetch only that issue with `gh issue view <N> --comments`. If it says it is blocked by other issues, check those with `gh issue view`; if any are still open, pick another task.
 
 You will work on the AFK issues only, not the HITL ones.
 
-You've also been passed a file containing the last few commits. Review these to understand what work has been done.
+`<previous_ralph_commits>` holds the last 5 RALPH commits (SHA, date, full message). These are the handoff notes from previous iterations. Review them to understand what work has been done.
 
 If all AFK tasks are complete, output <promise>NO MORE TASKS</promise>.
 
@@ -28,7 +28,13 @@ TL;DR - build a tiny, end-to-end slice of the feature first, then expand it out.
 
 # EXPLORATION
 
-Explore the repo.
+Keep exploration targeted — read only what this task needs:
+
+- The chosen issue and its parent PRD issue (if it references one)
+- `CLAUDE.md`, plus `system-plan.md` / `research/*/research.md` sections relevant to the task
+- Files the issue names, and code you find via grep/glob
+
+Prefer grep and partial reads over reading whole files. Don't survey the whole repo.
 
 # IMPLEMENTATION
 
@@ -49,20 +55,34 @@ Before committing, run the feedback loops:
 - `pnpm run test` to run the tests
 - `pnpm run typecheck` to run the type checker
 
+Use quiet/summary reporter output where available. Do not commit if they fail — fix them, or comment on the issue and stop.
+
+# PACKAGE MANAGER
+
+Use pnpm for all JS/TS work — never npm, npx or yarn (use `pnpm dlx` instead of npx). Commit `pnpm-lock.yaml`; never create `package-lock.json` or `yarn.lock`. Any new `package.json` must set `"packageManager": "pnpm@<version>"` (from `pnpm --version`) and include a `"preinstall": "npx only-allow pnpm"` script. If `test`/`typecheck` scripts don't exist yet, creating them is development infrastructure.
+
 # COMMIT
 
 Make a git commit. The commit message must:
 
-1. Include key decisions made
-2. Include files changed
-3. Blockers or notes for next iteration
+1. Start with `RALPH:` prefix
+2. Include task completed + issue number (and parent PRD, if any)
+3. Key decisions made
+4. Files changed
+5. Blockers or notes for next iteration
+
+Keep it concise.
+
+Then push: `git push -u origin HEAD`. You are already on the branch named in `<ralph_branch>`.
 
 # THE ISSUE
 
-If the task is complete, close the original GitHub issue.
+If the task is complete, close the issue after the push succeeds: `gh issue close <N> --comment "Done in <commit SHA> on branch <ralph_branch>"`.
 
 If the task is not complete, leave a comment on the GitHub issue with what was done.
 
 # FINAL RULES
 
 ONLY WORK ON A SINGLE TASK.
+
+Never switch, create or delete branches. Never push anything except the `<ralph_branch>` branch, and never force-push.
