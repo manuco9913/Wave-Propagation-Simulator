@@ -5,6 +5,11 @@ USER agent
 # Upgrade Claude Code to latest (must run as agent, installs to ~/.local/)
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
+# Pre-accept the workspace trust dialog for the repo mount, otherwise the project's
+# .claude/settings*.json permissions are ignored ("this workspace has not been trusted").
+RUN f=/home/agent/.claude.json; [ -f "$f" ] || echo '{}' > "$f"; \
+    jq '.projects["/workspace"].hasTrustDialogAccepted = true' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+
 USER root
 
 # Load tokens from .env for non-interactive shells (how the agent runs commands)
