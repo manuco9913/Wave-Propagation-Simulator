@@ -2,3 +2,4 @@
 # must keep LF line endings even with core.autocrlf=true, or bash fails on \r.
 *.sh             text eol=lf
 ralph/Dockerfile text eol=lf
+.githooks/*      text eol=lf

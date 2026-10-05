@@ -4,9 +4,19 @@
   "packageManager": "pnpm@10.34.6",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "pnpm --dir frontend dev",
     "dev:backend": "cd backend && uv run uvicorn app.main:app --reload --port 8000",
+    "format": "prettier --write frontend && cd backend && uv run ruff format .",
+    "format:check": "prettier --check frontend && cd backend && uv run ruff format --check .",
+    "lint": "pnpm --dir frontend lint && cd backend && uv run ruff check .",
+    "typecheck": "pnpm --dir frontend typecheck && pyright -p backend",
     "test": "pnpm --dir frontend test && cd backend && uv run pytest -q",
-    "typecheck": "pnpm --dir frontend typecheck"
+    "check:fast": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
+    "check": "pnpm run check:fast && pnpm run test"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9",
+    "pyright": "^1.1.414"
   }
 }

@@ -11,7 +11,7 @@ client = TestClient(app)
 
 
 @pytest.mark.parametrize("name", ["entity", "scenario"])
-def test_schema_endpoint_returns_contract_file(name):
+def test_schema_endpoint_returns_contract_file(name: str) -> None:
     res = client.get(f"/api/schema/{name}")
     assert res.status_code == 200
     expected = json.loads((CONTRACTS / f"{name}.schema.json").read_text(encoding="utf-8"))

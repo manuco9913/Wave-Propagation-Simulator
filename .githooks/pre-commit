@@ -1,0 +1,23 @@
+#!/bin/sh
+# Format check, lint and typecheck before every commit. Tests run in the Ralph loop and CI.
+# Enabled by `pnpm install` (prepare script sets core.hooksPath); inside the Ralph container
+# /etc/ralph-hooks/pre-commit delegates here.
+#
+# node_modules and backend/.venv are installed by the Linux Ralph container, and Windows can't
+# run those binaries, so on a Windows host the checks run inside the Ralph image instead.
+set -e
+
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*)
+    if ! docker image inspect ralph-sandbox:v2 >/dev/null 2>&1; then
+      echo "pre-commit: Docker or the ralph-sandbox:v2 image isn't available; skipping checks (CI still runs them)." >&2
+      exit 0
+    fi
+    root=$(git rev-parse --show-toplevel)
+    MSYS_NO_PATHCONV=1 exec docker run --rm -v "$(cd "$root" && pwd -W):/workspace" -w /workspace \
+      ralph-sandbox:v2 pnpm run check:fast
+    ;;
+  *)
+    exec pnpm run check:fast
+    ;;
+esac
