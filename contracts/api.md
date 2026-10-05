@@ -1,6 +1,6 @@
 # REST API Contract
 
-API contract between the frontend and backend (FastAPI / C#).
+API contract between the frontend and backend (Python / FastAPI).
 All request and response bodies are `application/json` unless noted.
 
 ---
