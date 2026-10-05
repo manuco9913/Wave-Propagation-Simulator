@@ -16,10 +16,30 @@
   pointer-events: none;
   z-index: 10;
 }
-.tl { top: 6px; left: 6px; border-top-width: 2px; border-left-width: 2px; }
-.tr { top: 6px; right: 6px; border-top-width: 2px; border-right-width: 2px; }
-.bl { bottom: 6px; left: 6px; border-bottom-width: 2px; border-left-width: 2px; }
-.br { bottom: 6px; right: 6px; border-bottom-width: 2px; border-right-width: 2px; }
+.tl {
+  top: 6px;
+  left: 6px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+.tr {
+  top: 6px;
+  right: 6px;
+  border-top-width: 2px;
+  border-right-width: 2px;
+}
+.bl {
+  bottom: 6px;
+  left: 6px;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+}
+.br {
+  bottom: 6px;
+  right: 6px;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}
 
 .topbar {
   flex: none;
@@ -87,8 +107,12 @@
   letter-spacing: 0.08em;
   color: var(--color-accent);
 }
-.label::before { content: "[ "; }
-.label::after { content: " ]"; }
+.label::before {
+  content: "[ ";
+}
+.label::after {
+  content: " ]";
+}
 
 .map {
   flex: 1;

@@ -50,16 +50,15 @@ Repeat until implementation is complete.
 
 # FEEDBACK LOOPS
 
-Before committing, run the feedback loops:
+Follow `CODING_STANDARDS.md`.
 
-- `pnpm run test` to run the tests
-- `pnpm run typecheck` to run the type checker
+Before committing, run `pnpm run check` (format check, lint, typecheck, tests — the same as CI). Run `pnpm run format` to fix formatting. While iterating, run only the tests you're working on.
 
-Use quiet/summary reporter output where available. Do not commit if they fail — fix them, or comment on the issue and stop.
+The pre-commit hook re-runs format/lint/typecheck. Do not commit if anything fails, and never bypass the hook (`--no-verify`) — fix it, or comment on the issue and stop.
 
 # PACKAGE MANAGER
 
-Use pnpm for all JS/TS work — never npm, npx or yarn (use `pnpm dlx` instead of npx). Commit `pnpm-lock.yaml`; never create `package-lock.json` or `yarn.lock`. Any new `package.json` must set `"packageManager": "pnpm@<version>"` (from `pnpm --version`) and include a `"preinstall": "npx only-allow pnpm"` script. If `test`/`typecheck` scripts don't exist yet, creating them is development infrastructure.
+Use pnpm for all JS/TS work — never npm, npx or yarn (use `pnpm dlx` instead of npx). Commit `pnpm-lock.yaml`; never create `package-lock.json` or `yarn.lock`. Any new `package.json` must set `"packageManager": "pnpm@<version>"` (from `pnpm --version`) and include a `"preinstall": "npx only-allow pnpm"` script. 
 
 # COMMIT
 

@@ -53,6 +53,13 @@ done
 exit 0
 HOOK
 
+# The repo's own pre-commit checks (format, lint, typecheck) still run under the hooksPath above.
+RUN cat > /etc/ralph-hooks/pre-commit <<'HOOK' && chmod +x /etc/ralph-hooks/pre-commit
+#!/bin/sh
+if [ -f .githooks/pre-commit ]; then exec sh .githooks/pre-commit "$@"; fi
+exit 0
+HOOK
+
 # Prepend /usr/local/bin so wrapper is found before ~/.local/bin
 ENV PATH=/usr/local/bin:$PATH
 
