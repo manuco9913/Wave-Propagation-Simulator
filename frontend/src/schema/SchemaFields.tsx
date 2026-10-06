@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { get, useController, useFormContext, useWatch } from "react-hook-form";
 import type { JsonSchema } from "./jsonSchema";
 import { evaluateShowIf } from "./showIf";
@@ -21,19 +21,38 @@ export function SchemaFields({ schema, prefix, layout = "stack", unit }: Props) 
   const scoped: unknown = prefix ? get(all, prefix) : all;
   const values = typeof scoped === "object" && scoped !== null ? scoped : {};
 
+  const visible = Object.entries(schema.properties ?? {}).filter(([, field]) =>
+    evaluateShowIf(field["x-show-if"], values as Record<string, unknown>),
+  );
+  const visibleKeys = new Set(visible.map(([key]) => key));
+  const pairedAway = new Set(
+    visible.map(([, field]) => field["x-paired-with"]).filter((k) => k && visibleKeys.has(k)),
+  );
+
+  const renderField = (key: string, field: JsonSchema) => (
+    <SchemaField
+      key={key}
+      name={prefix ? `${prefix}.${key}` : key}
+      label={field.title ?? humanize(key)}
+      schema={field}
+      unit={field["x-unit"] ?? unit}
+    />
+  );
+
   return (
     <div className={layout === "row" ? styles.row : styles.stack}>
-      {Object.entries(schema.properties ?? {}).map(([key, field]) =>
-        evaluateShowIf(field["x-show-if"], values as Record<string, unknown>) ? (
-          <SchemaField
-            key={key}
-            name={prefix ? `${prefix}.${key}` : key}
-            label={field.title ?? humanize(key)}
-            schema={field}
-            unit={field["x-unit"] ?? unit}
-          />
-        ) : null,
-      )}
+      {visible.map(([key, field]) => {
+        if (pairedAway.has(key)) return null; // rendered beside its partner
+        const partnerKey = field["x-paired-with"];
+        const partner = partnerKey ? schema.properties?.[partnerKey] : undefined;
+        if (!partnerKey || !partner || !visibleKeys.has(partnerKey)) return renderField(key, field);
+        return (
+          <div key={key} className={styles.row} data-pair>
+            {renderField(key, field)}
+            {renderField(partnerKey, partner)}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -51,8 +70,7 @@ function SchemaField(props: FieldProps) {
       </fieldset>
     );
   }
-  // numeric-or-file: inline numeric mode only for now; the file toggle lands with #30.
-  if (ui === "numeric-or-file") return <NumberField {...props} />;
+  if (ui === "numeric-or-file") return <NumericOrFileField {...props} />;
   switch (schema.type) {
     case "object":
       return (
@@ -76,15 +94,20 @@ function SchemaField(props: FieldProps) {
 function Field(props: {
   id: string;
   label: string;
+  /** Extra control shown on the label row (e.g. the value/file toggle). */
+  aside?: ReactNode;
   unit?: string | undefined;
   error: string | undefined;
   children: ReactNode;
 }) {
   return (
     <div className={styles.field} data-field data-invalid={props.error ? "" : undefined}>
-      <label htmlFor={props.id} className={styles.label}>
-        {props.label}
-      </label>
+      <div className={styles.labelRow}>
+        <label htmlFor={props.id} className={styles.label}>
+          {props.label}
+        </label>
+        {props.aside}
+      </div>
       <div className={styles.inputWrap}>
         {props.children}
         {props.unit && <span className={styles.unit}>{props.unit}</span>}
@@ -101,6 +124,72 @@ function NumberField({ name, label, unit }: FieldProps) {
   const value: unknown = field.value;
   return (
     <Field id={id} label={label} unit={unit} error={fieldState.error?.message}>
+      <input
+        id={id}
+        ref={inputRef}
+        type="number"
+        step="any"
+        className={unit ? `${styles.input} ${styles.hasUnit}` : styles.input}
+        value={typeof value === "number" ? value : ""}
+        onChange={(e) => {
+          const n = e.target.valueAsNumber;
+          field.onChange(Number.isNaN(n) ? undefined : n);
+        }}
+        onBlur={field.onBlur}
+      />
+    </Field>
+  );
+}
+
+/**
+ * `oneOf: [number, string]`: a typed number, or a path to a lookup table on the shared
+ * filesystem (contracts.md, "File-sourced Fields"). Switching mode clears the value.
+ */
+function NumericOrFileField({ name, label, unit }: FieldProps) {
+  const id = useId();
+  const { field, fieldState } = useController({ name });
+  const { ref: inputRef } = field;
+  const value: unknown = field.value;
+  const [mode, setMode] = useState<"value" | "file">(typeof value === "string" ? "file" : "value");
+
+  const toggle = (
+    <div className={styles.modeToggle}>
+      {(["value", "file"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          aria-pressed={mode === m}
+          className={styles.modeButton}
+          onClick={() => {
+            if (m === mode) return;
+            setMode(m);
+            field.onChange(undefined);
+          }}
+        >
+          {m === "value" ? "Value" : "File"}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (mode === "file") {
+    return (
+      <Field id={id} label={label} aside={toggle} error={fieldState.error?.message}>
+        <input
+          id={id}
+          ref={inputRef}
+          type="text"
+          placeholder="path/to/table.csv"
+          className={styles.input}
+          value={typeof value === "string" ? value : ""}
+          onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.value)}
+          onBlur={field.onBlur}
+        />
+      </Field>
+    );
+  }
+  return (
+    <Field id={id} label={label} unit={unit} aside={toggle} error={fieldState.error?.message}>
       <input
         id={id}
         ref={inputRef}

@@ -1,5 +1,12 @@
-import { useMemo } from "react";
-import { type FieldValues, FormProvider, get, useForm, useWatch } from "react-hook-form";
+import { useMemo, useState } from "react";
+import {
+  type FieldValues,
+  FormProvider,
+  get,
+  useFieldArray,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import type { Schemas } from "../api";
 import type { LngLat } from "../geo";
 import { MapView, type MapEntity } from "../MapView";
@@ -10,20 +17,19 @@ import styles from "./ScenarioWorkspace.module.css";
 
 // The entity list and the map are the hardcoded shell around the schema-driven fields.
 const ENTITIES = "entities";
-const FIRST_ENTITY = `${ENTITIES}.0`;
 
 type Props = {
   schemas: Schemas | null;
   onSubmit: (scenario: FieldValues) => void;
 };
 
-/** Scenario sidebar plus map; the map marker and the entity's coordinate fields stay in sync. */
+/** Scenario sidebar plus map; each entity's marker and coordinate fields stay in sync. */
 export function ScenarioWorkspace({ schemas, onSubmit }: Props) {
   if (!schemas) {
     return (
       <Layout
         sidebar={<h2 className={styles.title}>Scenario</h2>}
-        map={<MapView entity={null} onEntityMove={() => {}} />}
+        map={<MapView entities={[]} activeIndex={0} onEntityMove={() => {}} />}
       />
     );
   }
@@ -31,10 +37,17 @@ export function ScenarioWorkspace({ schemas, onSubmit }: Props) {
 }
 
 function LoadedWorkspace({ schemas, onSubmit }: Props & { schemas: Schemas }) {
+  const listSchema = schemas.scenario.properties?.[ENTITIES];
+  const minEntities = Math.max(listSchema?.minItems ?? 1, 1);
+  const maxEntities = listSchema?.maxItems ?? Infinity;
+
   const resolver = useMemo(() => createScenarioResolver(schemas), [schemas]);
   const initial = useMemo(
-    () => ({ ...defaultValues(schemas.scenario), [ENTITIES]: [defaultValues(schemas.entity)] }),
-    [schemas],
+    () => ({
+      ...defaultValues(schemas.scenario),
+      [ENTITIES]: Array.from({ length: minEntities }, () => defaultValues(schemas.entity)),
+    }),
+    [schemas, minEntities],
   );
   const form = useForm({
     mode: "onBlur",
@@ -42,21 +55,39 @@ function LoadedWorkspace({ schemas, onSubmit }: Props & { schemas: Schemas }) {
     resolver,
     defaultValues: initial,
   });
+  const list = useFieldArray({ control: form.control, name: ENTITIES });
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const coordinateKey = findCoordinateKey(schemas.entity);
-  const firstEntity: unknown = useWatch({ control: form.control, name: FIRST_ENTITY });
-  const mapEntity = coordinateKey ? toMapEntity(firstEntity, coordinateKey) : null;
+  const entities: unknown = useWatch({ control: form.control, name: ENTITIES });
+  const mapEntities = (Array.isArray(entities) ? entities : []).map((entity: unknown) =>
+    coordinateKey ? toMapEntity(entity, coordinateKey) : null,
+  );
 
-  function moveEntity({ lng, lat }: LngLat) {
+  function moveEntity(index: number, { lng, lat }: LngLat) {
+    setActiveIndex(index);
     if (!coordinateKey) return;
     form.setValue(
-      `${FIRST_ENTITY}.${coordinateKey}`,
+      `${ENTITIES}.${index}.${coordinateKey}`,
       { lat: round6(lat), lon: round6(lng) },
       { shouldValidate: true, shouldDirty: true },
     );
   }
 
+  function addEntity() {
+    list.append(defaultValues(schemas.entity));
+    setActiveIndex(list.fields.length); // the new entity is placed by the next map click
+  }
+
+  function removeEntity(index: number) {
+    list.remove(index);
+    setActiveIndex((active) =>
+      active > index ? active - 1 : Math.min(active, list.fields.length - 2),
+    );
+  }
+
   const listError: unknown = get(form.formState.errors, `${ENTITIES}.root.message`);
+  const canRemove = list.fields.length > minEntities;
 
   return (
     <Layout
@@ -69,13 +100,52 @@ function LoadedWorkspace({ schemas, onSubmit }: Props & { schemas: Schemas }) {
           >
             <h2 className={styles.title}>Scenario</h2>
             <SchemaFields schema={schemas.scenario} prefix="" />
-            <div className={styles.label}>Entities</div>
-            <section className={styles.entityCard} aria-label="Entity 1">
-              <div className={styles.entityHead}>Entity 1</div>
-              <div className={styles.entityBody}>
-                <SchemaFields schema={schemas.entity} prefix={FIRST_ENTITY} />
+            <div className={styles.listHead}>
+              <div className={styles.label}>
+                Entities {list.fields.length}/{maxEntities}
               </div>
-            </section>
+              <button
+                type="button"
+                className={styles.ghost}
+                disabled={list.fields.length >= maxEntities}
+                onClick={addEntity}
+              >
+                Add entity
+              </button>
+            </div>
+            {list.fields.map((item, index) => (
+              <section
+                key={item.id}
+                className={styles.entityCard}
+                aria-label={`Entity ${index + 1}`}
+                data-active={index === activeIndex ? "" : undefined}
+              >
+                <div className={styles.entityHead}>
+                  <button
+                    type="button"
+                    className={styles.entityName}
+                    aria-pressed={index === activeIndex}
+                    title="Map clicks place the selected entity"
+                    onClick={() => setActiveIndex(index)}
+                  >
+                    Entity {index + 1}
+                    <EntityLabel index={index} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.ghost}
+                    aria-label={`Remove entity ${index + 1}`}
+                    disabled={!canRemove}
+                    onClick={() => removeEntity(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className={styles.entityBody}>
+                  <SchemaFields schema={schemas.entity} prefix={`${ENTITIES}.${index}`} />
+                </div>
+              </section>
+            ))}
             {typeof listError === "string" && (
               <p role="alert" className={styles.formError}>
                 {listError}
@@ -87,9 +157,17 @@ function LoadedWorkspace({ schemas, onSubmit }: Props & { schemas: Schemas }) {
           </form>
         </FormProvider>
       }
-      map={<MapView entity={mapEntity} onEntityMove={moveEntity} />}
+      map={<MapView entities={mapEntities} activeIndex={activeIndex} onEntityMove={moveEntity} />}
     />
   );
+}
+
+/** The entity's `label` value, if it has one, as a display name in the card header. */
+function EntityLabel({ index }: { index: number }) {
+  const label: unknown = useWatch({ name: `${ENTITIES}.${index}.label` });
+  return typeof label === "string" && label ? (
+    <span className={styles.entityLabel}> · {label}</span>
+  ) : null;
 }
 
 function Layout({ sidebar, map }: { sidebar: React.ReactNode; map: React.ReactNode }) {

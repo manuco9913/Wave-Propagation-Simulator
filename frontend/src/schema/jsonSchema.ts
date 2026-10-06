@@ -21,4 +21,6 @@ export interface JsonSchema {
   "x-unit"?: string;
   "x-ui-component"?: string;
   "x-show-if"?: ShowIfCondition;
+  /** Sibling property rendered beside this one (e.g. azimuth + beam_width). */
+  "x-paired-with"?: string;
 }

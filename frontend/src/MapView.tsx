@@ -11,9 +11,12 @@ import styles from "./MapView.module.css";
 export type MapEntity = LngLat & { radiusKm: number };
 
 type Props = {
-  entity: MapEntity | null;
-  /** Called with the new position when the map is clicked or the marker is dragged. */
-  onEntityMove: (position: LngLat) => void;
+  /** One slot per entity, in list order; null while an entity has no valid position yet. */
+  entities: readonly (MapEntity | null)[];
+  /** The entity a map click places. */
+  activeIndex: number;
+  /** A map click moves the active entity; dragging a marker moves that marker's entity. */
+  onEntityMove: (index: number, position: LngLat) => void;
 };
 
 const RING_SOURCE = "entity-ring";
@@ -55,23 +58,36 @@ function baseStyle(): maplibregl.StyleSpecification {
   };
 }
 
-function ringData(entity: MapEntity | null): maplibregl.GeoJSONSourceSpecification["data"] {
+function ringData(
+  entities: readonly (MapEntity | null)[],
+): maplibregl.GeoJSONSourceSpecification["data"] {
   return {
     type: "FeatureCollection",
-    features:
-      entity && entity.radiusKm > 0
-        ? [{ type: "Feature", properties: {}, geometry: circlePolygon(entity, entity.radiusKm) }]
-        : [],
+    features: entities
+      .filter((e): e is MapEntity => e !== null && e.radiusKm > 0)
+      .map((e) => ({ type: "Feature", properties: {}, geometry: circlePolygon(e, e.radiusKm) })),
   };
 }
 
-export function MapView({ entity, onEntityMove }: Props) {
+function createMarker(map: maplibregl.Map, onDrag: (marker: maplibregl.Marker) => void) {
+  const el = document.createElement("div");
+  el.className = styles.pin ?? "";
+  el.setAttribute("data-testid", "entity-marker");
+  const marker = new maplibregl.Marker({ element: el, draggable: true })
+    .setLngLat([0, 0])
+    .addTo(map);
+  marker.on("drag", () => onDrag(marker));
+  return marker;
+}
+
+export function MapView({ entities, activeIndex, onEntityMove }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
-  const latest = useRef({ entity, onEntityMove });
+  // Index-aligned with `entities`, so a marker's entity is its position in this array.
+  const markersRef = useRef<(maplibregl.Marker | null)[]>([]);
+  const latest = useRef({ entities, activeIndex, onEntityMove });
   useEffect(() => {
-    latest.current = { entity, onEntityMove };
+    latest.current = { entities, activeIndex, onEntityMove };
   });
 
   useEffect(() => {
@@ -92,7 +108,7 @@ export function MapView({ entity, onEntityMove }: Props) {
     mapRef.current = map;
 
     map.on("load", () => {
-      map.addSource(RING_SOURCE, { type: "geojson", data: ringData(latest.current.entity) });
+      map.addSource(RING_SOURCE, { type: "geojson", data: ringData(latest.current.entities) });
       map.addLayer({
         id: RING_SOURCE,
         type: "line",
@@ -106,12 +122,14 @@ export function MapView({ entity, onEntityMove }: Props) {
     });
 
     map.on("click", (e: maplibregl.MapMouseEvent) => {
-      latest.current.onEntityMove({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+      const { activeIndex, onEntityMove } = latest.current;
+      onEntityMove(activeIndex, { lng: e.lngLat.lng, lat: e.lngLat.lat });
     });
 
+    const markers = markersRef.current;
     return () => {
-      markerRef.current?.remove();
-      markerRef.current = null;
+      for (const marker of markers) marker?.remove();
+      markers.length = 0;
       map.remove();
       mapRef.current = null;
     };
@@ -120,27 +138,27 @@ export function MapView({ entity, onEntityMove }: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (!entity) {
-      markerRef.current?.remove();
-      markerRef.current = null;
-    } else if (markerRef.current) {
-      markerRef.current.setLngLat(entity);
-    } else {
-      const el = document.createElement("div");
-      el.className = styles.pin ?? "";
-      el.setAttribute("data-testid", "entity-marker");
-      const marker = new maplibregl.Marker({ element: el, draggable: true })
-        .setLngLat(entity)
-        .addTo(map);
-      marker.on("drag", () => {
-        const { lng, lat } = marker.getLngLat();
-        latest.current.onEntityMove({ lng, lat });
-      });
-      markerRef.current = marker;
-    }
-    const source = map.getSource<maplibregl.GeoJSONSource>(RING_SOURCE);
-    source?.setData(ringData(entity));
-  }, [entity]);
+    const markers = markersRef.current;
+    for (const marker of markers.splice(entities.length)) marker?.remove();
+    entities.forEach((entity, index) => {
+      const existing = markers[index] ?? null;
+      if (!entity) {
+        existing?.remove();
+        markers[index] = null;
+        return;
+      }
+      const marker =
+        existing ??
+        createMarker(map, (dragged) => {
+          const draggedIndex = markers.indexOf(dragged);
+          if (draggedIndex !== -1) latest.current.onEntityMove(draggedIndex, dragged.getLngLat());
+        });
+      marker.setLngLat(entity);
+      marker.getElement().toggleAttribute("data-active", index === activeIndex);
+      markers[index] = marker;
+    });
+    map.getSource<maplibregl.GeoJSONSource>(RING_SOURCE)?.setData(ringData(entities));
+  }, [entities, activeIndex]);
 
   return <div ref={container} className={styles.map} aria-label="Map" />;
 }

@@ -29,6 +29,36 @@
   gap: var(--space-xs);
 }
 
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.modeToggle {
+  display: flex;
+}
+
+.modeButton {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0 var(--space-xs);
+  cursor: pointer;
+}
+.modeButton + .modeButton {
+  border-left-width: 0;
+}
+.modeButton[aria-pressed="true"] {
+  color: var(--color-surface);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
 .label {
   padding: 0;
   font-size: var(--font-size-sm);
@@ -62,12 +92,12 @@
 }
 
 .hasUnit {
-  padding-right: var(--space-3xl);
+  padding-right: var(--space-2xl);
 }
 
 .unit {
   position: absolute;
-  right: var(--space-md);
+  right: var(--space-sm);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);

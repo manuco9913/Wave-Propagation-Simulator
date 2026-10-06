@@ -31,9 +31,13 @@
       }
     },
     "frequency": {
-      "type": "number",
       "title": "Frequency",
-      "x-unit": "MHz"
+      "x-ui-component": "numeric-or-file",
+      "x-unit": "MHz",
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 }
+      ]
     },
     "power": {
       "title": "Power",

@@ -15,7 +15,10 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--color-accent);
+  background: var(--color-text-muted);
   border: 1px solid var(--color-surface);
   transform: rotate(45deg);
+}
+.pin[data-active]::before {
+  background: var(--color-accent);
 }
