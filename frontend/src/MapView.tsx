@@ -1,5 +1,8 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+// Vite pre-bundles maplibre, which breaks its import.meta.url-relative worker lookup;
+// hand it an explicitly bundled worker instead.
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { Protocol } from "pmtiles";
 import { useEffect, useRef } from "react";
 import { circlePolygon, type LngLat } from "./geo";
@@ -18,6 +21,7 @@ const TILES_URL = "pmtiles://" + new URL("map/sample.pmtiles", document.baseURI)
 let protocolRegistered = false;
 function registerPmtiles() {
   if (protocolRegistered) return;
+  maplibregl.setWorkerUrl(workerUrl);
   maplibregl.addProtocol("pmtiles", new Protocol().tile);
   protocolRegistered = true;
 }

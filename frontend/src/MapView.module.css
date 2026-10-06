@@ -3,12 +3,19 @@
   inset: 0;
 }
 
-/* Entity pin: 45°-rotated square (diamond blip), square corners per frontend-style.md. */
+/* Entity pin: 45°-rotated square (diamond blip), square corners per frontend-style.md.
+   MapLibre owns the marker element's transform, so the rotation lives on a pseudo-element. */
 .pin {
   width: 14px;
   height: 14px;
+  cursor: grab;
+}
+
+.pin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: var(--color-accent);
   border: 1px solid var(--color-surface);
   transform: rotate(45deg);
-  cursor: grab;
 }
