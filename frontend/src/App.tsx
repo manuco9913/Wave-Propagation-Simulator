@@ -1,18 +1,23 @@
 import { useEffect, useState } from "react";
-import { fetchSchemas } from "./api";
+import { fetchSchemas, type Schemas } from "./api";
 import styles from "./App.module.css";
-import { MapView, type MapEntity } from "./MapView";
+import { ScenarioWorkspace } from "./scenario/ScenarioWorkspace";
 
 type Status = "loading" | "ready" | "error";
 
 export function App() {
   const [status, setStatus] = useState<Status>("loading");
-  const [entity, setEntity] = useState<MapEntity | null>(null);
+  const [schemas, setSchemas] = useState<Schemas | null>(null);
+  const [scenarioValid, setScenarioValid] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetchSchemas().then(
-      () => !cancelled && setStatus("ready"),
+      (loaded) => {
+        if (cancelled) return;
+        setSchemas(loaded);
+        setStatus("ready");
+      },
       () => !cancelled && setStatus("error"),
     );
     return () => {
@@ -33,17 +38,11 @@ export function App() {
         </div>
         <div className={styles.status} data-testid="schema-status">
           schemas: {status}
+          {/* Submitting to the backend lands with #31; for now a valid form is the end of the line. */}
+          {scenarioValid && " · scenario: valid"}
         </div>
       </header>
-      <div className={styles.body}>
-        <aside className={styles.sidebar}>
-          <h2 className={styles.title}>Scenario</h2>
-          <div className={styles.label}>Entities</div>
-        </aside>
-        <main className={styles.map}>
-          <MapView entity={entity} onEntityChange={setEntity} />
-        </main>
-      </div>
+      <ScenarioWorkspace schemas={schemas} onSubmit={() => setScenarioValid(true)} />
     </div>
   );
 }

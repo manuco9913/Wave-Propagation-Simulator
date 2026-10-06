@@ -12,7 +12,8 @@ export type MapEntity = LngLat & { radiusKm: number };
 
 type Props = {
   entity: MapEntity | null;
-  onEntityChange: (entity: MapEntity) => void;
+  /** Called with the new position when the map is clicked or the marker is dragged. */
+  onEntityMove: (position: LngLat) => void;
 };
 
 const RING_SOURCE = "entity-ring";
@@ -57,19 +58,20 @@ function baseStyle(): maplibregl.StyleSpecification {
 function ringData(entity: MapEntity | null): maplibregl.GeoJSONSourceSpecification["data"] {
   return {
     type: "FeatureCollection",
-    features: entity
-      ? [{ type: "Feature", properties: {}, geometry: circlePolygon(entity, entity.radiusKm) }]
-      : [],
+    features:
+      entity && entity.radiusKm > 0
+        ? [{ type: "Feature", properties: {}, geometry: circlePolygon(entity, entity.radiusKm) }]
+        : [],
   };
 }
 
-export function MapView({ entity, onEntityChange }: Props) {
+export function MapView({ entity, onEntityMove }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
-  const latest = useRef({ entity, onEntityChange });
+  const latest = useRef({ entity, onEntityMove });
   useEffect(() => {
-    latest.current = { entity, onEntityChange };
+    latest.current = { entity, onEntityMove };
   });
 
   useEffect(() => {
@@ -104,12 +106,7 @@ export function MapView({ entity, onEntityChange }: Props) {
     });
 
     map.on("click", (e: maplibregl.MapMouseEvent) => {
-      const prev = latest.current.entity;
-      latest.current.onEntityChange({
-        lng: e.lngLat.lng,
-        lat: e.lngLat.lat,
-        radiusKm: prev?.radiusKm ?? 50,
-      });
+      latest.current.onEntityMove({ lng: e.lngLat.lng, lat: e.lngLat.lat });
     });
 
     return () => {
@@ -137,11 +134,7 @@ export function MapView({ entity, onEntityChange }: Props) {
         .addTo(map);
       marker.on("drag", () => {
         const { lng, lat } = marker.getLngLat();
-        latest.current.onEntityChange({
-          lng,
-          lat,
-          radiusKm: latest.current.entity?.radiusKm ?? 50,
-        });
+        latest.current.onEntityMove({ lng, lat });
       });
       markerRef.current = marker;
     }

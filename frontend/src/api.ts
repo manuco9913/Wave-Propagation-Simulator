@@ -1,4 +1,4 @@
-export type JsonSchema = Record<string, unknown>;
+import type { JsonSchema } from "./schema/jsonSchema";
 
 export interface Schemas {
   entity: JsonSchema;
