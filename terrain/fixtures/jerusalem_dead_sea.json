@@ -1,0 +1,49 @@
+{
+  "source_tile": "Copernicus_DSM_COG_10_N31_00_E035_00_DEM",
+  "bounds": {
+    "west": 35.19986111,
+    "south": 31.72013889,
+    "east": 35.49986111,
+    "north": 31.78013889
+  },
+  "width": 1080,
+  "height": 216,
+  "pixel_size_deg": 0.0002777777777777778,
+  "dtype": "float32",
+  "vertical_datum": "EGM2008",
+  "area_or_point": "Point",
+  "reference_points": [
+    {
+      "name": "Jerusalem Old City",
+      "lat": 31.7767,
+      "lon": 35.2345,
+      "row": 12,
+      "col": 124,
+      "elevation_m": 731.524
+    },
+    {
+      "name": "Dead Sea shore",
+      "lat": 31.738,
+      "lon": 35.49,
+      "row": 151,
+      "col": 1044,
+      "elevation_m": -410.512
+    },
+    {
+      "name": "lowest pixel",
+      "lat": 31.750556,
+      "lon": 35.499722,
+      "row": 106,
+      "col": 1079,
+      "elevation_m": -427.0
+    },
+    {
+      "name": "highest pixel",
+      "lat": 31.739722,
+      "lon": 35.216944,
+      "row": 145,
+      "col": 61,
+      "elevation_m": 821.787
+    }
+  ]
+}
