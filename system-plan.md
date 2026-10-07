@@ -257,19 +257,20 @@ switching requires only a config change. Exact interface: TBD-3.
 
 ## TBD — Features To Design Separately
 
-Agreed to exist, but deliberately not designed yet. Each needs its own design pass before an
+Agreed to exist, but deliberately not designed yet. Each needs its own design pass (a HITL issue) before an
 agent implements it.
 
 | # | Topic | What's open |
 |---|---|---|
-| TBD-1 | **Beam width and recalculation** | Beam width is part of the recalculation logic (TBD-2): which level a beam-width change triggers, and whether beam width can be edited after a run. Must be reconciled with "gain applied at slice time". |
-| TBD-2 | **Re-run and recalculation levels** | Three levels of change: (1) needs a **recompute** by the engine; (2) needs the **slice re-fetched** and reprocessed server-side; (3) can be applied **in the browser** on the already-loaded slice. Classify every field into a level. Re-run endpoint, and how the "one unsaved run per scenario" conflict is enforced. |
-| TBD-3 | **Engine interface** | The exact interface both the fake and MATLAB engines implement: inputs, output files, progress reporting, cancellation, error reporting; how much work one engine call covers (whole run vs per entity — depends on MATLAB startup cost); file format handed to MATLAB (agree with the MATLAB developer). |
-| TBD-4 | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
-| TBD-5 | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |
-| TBD-6 | **Per-run parameter store format** | Decided: parameters and arrays needed at slice time live in a separate store per run. Open: technology (e.g. one HDF5 or SQLite file per run), layout, lifecycle on save/discard. |
-| TBD-7 | **Per-angle frequency/power file** | Decided: a table "at entity angle *x*, value *y*", uploaded via `POST /api/files`. Open: file format/columns, whether angles are relative to `azimuth` or true north, interpolation between angles, required coverage of 0–360°. |
-| TBD-8 | **Vertical gain formula** | 3GPP TR 38.901 vertical pattern used as a placeholder — check with the domain expert. Also confirm `antenna_height` is above ground. |
+| TBD-1 (#49) | **Beam width and recalculation** | Beam width is part of the recalculation logic (TBD-2): which level a beam-width change triggers, and whether beam width can be edited after a run. Must be reconciled with "gain applied at slice time". |
+| TBD-2 (#43) | **Re-run and recalculation levels** | Three levels of change: (1) needs a **recompute** by the engine; (2) needs the **slice re-fetched** and reprocessed server-side; (3) can be applied **in the browser** on the already-loaded slice. Classify every field into a level. Re-run endpoint, and how the "one unsaved run per scenario" conflict is enforced. |
+| TBD-3 (#44) | **Engine interface** | The exact interface both the fake and MATLAB engines implement: inputs, output files, progress reporting, cancellation, error reporting; how much work one engine call covers (whole run vs per entity — depends on MATLAB startup cost); file format handed to MATLAB (agree with the MATLAB developer). |
+| TBD-4 (#50) | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
+| TBD-5 (#51) | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |
+| TBD-6 (#45) | **Per-run parameter store format** | Decided: parameters and arrays needed at slice time live in a separate store per run. Open: technology (e.g. one HDF5 or SQLite file per run), layout, lifecycle on save/discard. |
+| TBD-7 (#46) | **Per-angle frequency/power file** | Decided: a table "at entity angle *x*, value *y*", uploaded via `POST /api/files`. Open: file format/columns, whether angles are relative to `azimuth` or true north, interpolation between angles, required coverage of 0–360°. |
+| TBD-8 (#47) | **Vertical gain formula** | 3GPP TR 38.901 vertical pattern used as a placeholder — check with the domain expert. Also confirm `antenna_height` is above ground. |
+| TBD-9 (#48) | **Database migrations** | How table changes reach an existing database as the app evolves. Proposal: numbered plain-SQL files (`001_create_tables.sql`, `002_…`) applied in order by a small script that records what's applied; vs a library such as Alembic. |
 
 ---
 
