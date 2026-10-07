@@ -31,9 +31,13 @@
       }
     },
     "frequency": {
-      "type": "number",
       "title": "Frequency",
-      "x-unit": "MHz"
+      "x-ui-component": "numeric-or-file",
+      "x-unit": "MHz",
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 }
+      ]
     },
     "power": {
       "title": "Power",
@@ -49,17 +53,25 @@
       "title": "Azimuth",
       "minimum": 0,
       "maximum": 360,
-      "x-unit": "°",
-      "x-paired-with": "beam_width"
+      "x-unit": "°"
     },
     "beam_width": {
       "type": "number",
       "title": "Beam Width",
-      "description": "Angular width of the calculated sector in degrees, centred on azimuth. 360 means full 360° (default behaviour).",
+      "description": "Vertical half-power beamwidth of the antenna. The antenna covers the full 360° horizontally. Omitted = no vertical gain pattern (isotropic).",
       "minimum": 1,
-      "maximum": 360,
-      "default": 360,
+      "maximum": 180,
       "x-unit": "°"
+    },
+    "tilt": {
+      "type": "number",
+      "title": "Antenna Tilt",
+      "description": "Elevation of the beam's main axis above the horizon. Negative = downtilt.",
+      "minimum": -90,
+      "maximum": 90,
+      "default": 0,
+      "x-unit": "°",
+      "x-paired-with": "beam_width"
     },
     "antenna_height": {
       "type": "number",

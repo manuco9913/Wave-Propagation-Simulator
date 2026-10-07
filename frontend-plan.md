@@ -54,7 +54,7 @@ One component per type. Each receives: `name`, `label`, field-level schema props
 | `CoordinateField` | `x-ui-component: coordinate` — lat/lon inputs + map sync |
 | `RangeField` | `x-ui-component: range` — dual min/max numeric inputs |
 | `MatrixField` | `x-ui-component: matrix` — file upload + read-only data preview |
-| `ValueOrFileField` | `x-ui-component: numeric-or-file` — toggle between numeric input and file path |
+| `ValueOrFileField` | `x-ui-component: numeric-or-file` — toggle between numeric input and file upload (`POST /api/files` → `file_id`) |
 
 ---
 
