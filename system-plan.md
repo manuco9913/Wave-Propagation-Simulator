@@ -255,7 +255,7 @@ switching requires only a config change. Exact interface: TBD-3.
 
 ---
 
-## Engine Interface (#44 — draft, pending sign-off)
+## Engine Interface (#44 — signed off 2026-10-10)
 
 One interface, implemented by the fake engine (first) and the MATLAB engine (#37). The engine
 knows nothing about the database, SSE or HTTP — the worker translates.
@@ -380,7 +380,7 @@ agent implements it.
 |---|---|---|
 | TBD-1 (#49) | **Beam width and recalculation** | Beam width is part of the recalculation logic (TBD-2): which level a beam-width change triggers, and whether beam width can be edited after a run. Must be reconciled with "gain applied at slice time". |
 | TBD-2 (#43) | **Re-run and recalculation levels** | Three levels of change: (1) needs a **recompute** by the engine; (2) needs the **slice re-fetched** and reprocessed server-side; (3) can be applied **in the browser** on the already-loaded slice. Classify every field into a level. Re-run endpoint, and how the "one unsaved run per scenario" conflict is enforced. |
-| TBD-3 (#44) | **Engine interface** | **Drafted** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open: sign-off, and MATLAB-developer questions Q-M2, Q-M5–Q-M8. |
+| TBD-3 (#44) | **Engine interface** | **Signed off** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open only: MATLAB-developer questions Q-M2, Q-M5–Q-M8 (fake engine uses defaults). |
 | TBD-4 (#50) | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
 | TBD-5 (#51) | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |
 | TBD-6 (#45) | **Per-run parameter store format** | Decided: parameters and arrays needed at slice time live in a separate store per run. Open: technology (e.g. one HDF5 or SQLite file per run), layout, lifecycle on save/discard. |
