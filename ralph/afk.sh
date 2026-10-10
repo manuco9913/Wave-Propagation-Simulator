@@ -16,6 +16,9 @@ require_image
 RALPH_BRANCH=$(ralph_branch)
 echo "Ralph working on branch $RALPH_BRANCH"
 
+# Dependencies live in container volumes (see common.sh); refresh them before the loop.
+install_deps
+
 # node: stream assistant text and a one-line summary of each tool call as they arrive
 stream_text_node='
 process.stdin.setEncoding("utf8");
@@ -49,6 +52,9 @@ for(const l of lines){
   try{
     const o=JSON.parse(l);
     if(o.type==="result"){
+      const u=o.usage||{};
+      process.stderr.write("[cost] $"+(o.total_cost_usd??0).toFixed(4)+" | turns "+o.num_turns+" | "+Math.round((o.duration_ms||0)/1000)+"s"
+        +" | in "+(u.input_tokens||0)+" cache_write "+(u.cache_creation_input_tokens||0)+" cache_read "+(u.cache_read_input_tokens||0)+" out "+(u.output_tokens||0)+"\n");
       process.stdout.write(String(o.result??o.subtype??""));
       process.exit(o.is_error?1:0);
     }

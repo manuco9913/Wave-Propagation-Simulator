@@ -1,0 +1,26 @@
+#!/bin/sh
+# Formats, lints and typechecks the staged files (lint-staged.config.mjs). Tests run in the Ralph
+# loop and CI. Enabled by `pnpm install` (prepare script sets core.hooksPath); inside the Ralph
+# container /etc/ralph-hooks/pre-commit delegates here.
+#
+# A Windows host without uv (needed for the Python checks) runs the hook inside the Ralph image
+# instead, against the container's own dependency volumes.
+set -e
+
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*)
+    if command -v uv >/dev/null 2>&1 && [ -e node_modules/.bin/lint-staged ]; then
+      exec pnpm exec lint-staged
+    fi
+    if ! docker image inspect ralph-sandbox:v2 >/dev/null 2>&1; then
+      echo "pre-commit: no uv on this host and Docker/ralph-sandbox:v2 unavailable; skipping checks (CI still runs them)." >&2
+      exit 0
+    fi
+    . ralph/common.sh
+    # The container's dependency volumes may predate a lockfile change made on the host.
+    run_in_container bash -c 'pnpm install --frozen-lockfile --reporter=silent && pnpm exec lint-staged'
+    ;;
+  *)
+    exec pnpm exec lint-staged
+    ;;
+esac

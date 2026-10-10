@@ -15,3 +15,7 @@ Canonical roles map onto this repo's existing `AFK`/`HITL` labels plus two new o
 ### Domain docs
 
 Single-context repo. No `CONTEXT.md` or `docs/adr/` yet — `research/*/research.md` and `system-plan.md` serve that role until they exist. See `docs/agents/domain.md`.
+
+## Code quality
+
+Follow `CODING_STANDARDS.md` (draft). `pnpm run check` runs format check, lint, typecheck and tests, the same as CI. The pre-commit hook (`.githooks/`, enabled by `pnpm install`) runs lint-staged on staged files plus typecheck; on a Windows host without `uv` it runs inside the `ralph-sandbox:v2` image. The Ralph container keeps its `node_modules`/`.venv` in Docker volumes (`ralph/common.sh`), so the host's own installs never collide with it.

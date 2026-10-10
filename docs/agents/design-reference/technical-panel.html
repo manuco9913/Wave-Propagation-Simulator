@@ -48,11 +48,11 @@
   .app-body{ position:relative; flex:1; display:flex; margin-top:48px; height:calc(800px - 48px); }
 
   /* -------- corner brackets (technical only) -------- */
-  .corner{ position:absolute; width:22px; height:22px; opacity:0; pointer-events:none; z-index:10; border-color:var(--color-accent); }
-  .corner.tl{ top:6px; left:6px; border-top:2px solid; border-left:2px solid; }
-  .corner.tr{ top:6px; right:6px; border-top:2px solid; border-right:2px solid; }
-  .corner.bl{ bottom:6px; left:6px; border-bottom:2px solid; border-left:2px solid; }
-  .corner.br{ bottom:6px; right:6px; border-bottom:2px solid; border-right:2px solid; }
+  .corner{ position:absolute; width:22px; height:22px; opacity:0; pointer-events:none; z-index:10; border:0 solid var(--color-accent); }
+  .corner.tl{ top:6px; left:6px; border-top-width:2px; border-left-width:2px; }
+  .corner.tr{ top:6px; right:6px; border-top-width:2px; border-right-width:2px; }
+  .corner.bl{ bottom:6px; left:6px; border-bottom-width:2px; border-left-width:2px; }
+  .corner.br{ bottom:6px; right:6px; border-bottom-width:2px; border-right-width:2px; }
   [data-style="technical"] .corner{ opacity:.8; }
 
   /* -------- sidebar -------- */

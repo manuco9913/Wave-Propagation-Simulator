@@ -41,6 +41,7 @@ desktop.ini
 
 # Playwright MCP runtime output
 .playwright-mcp/
+.pnpm-store/
 
 # Terrain tiles (fetched by terrain/fetch.py, never committed)
 /terrain-cache/
