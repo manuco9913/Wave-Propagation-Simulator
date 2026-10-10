@@ -45,3 +45,4 @@ desktop.ini
 
 # Terrain tiles (fetched by terrain/fetch.py, never committed)
 /terrain-cache/
+/backend/runs/

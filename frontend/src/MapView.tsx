@@ -6,7 +6,9 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { Protocol } from "pmtiles";
 import { useEffect, useRef } from "react";
 import { circlePolygon, type LngLat } from "./geo";
+import { createHeatmapLayer, type HeatmapLayer } from "./heatmap/heatmapLayer";
 import styles from "./MapView.module.css";
+import type { Slice } from "./run/slice";
 
 export type MapEntity = LngLat & { radiusKm: number };
 
@@ -17,9 +19,12 @@ type Props = {
   activeIndex: number;
   /** A map click moves the active entity; dragging a marker moves that marker's entity. */
   onEntityMove: (index: number, position: LngLat) => void;
+  /** The run result drawn under the entities; null draws nothing. */
+  heatmap: Slice | null;
 };
 
 const RING_SOURCE = "entity-ring";
+const HEATMAP_LAYER = "heatmap";
 const TILES_URL = "pmtiles://" + new URL("map/sample.pmtiles", document.baseURI).href;
 
 let protocolRegistered = false;
@@ -80,14 +85,15 @@ function createMarker(map: maplibregl.Map, onDrag: (marker: maplibregl.Marker) =
   return marker;
 }
 
-export function MapView({ entities, activeIndex, onEntityMove }: Props) {
+export function MapView({ entities, activeIndex, onEntityMove, heatmap }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   // Index-aligned with `entities`, so a marker's entity is its position in this array.
   const markersRef = useRef<(maplibregl.Marker | null)[]>([]);
-  const latest = useRef({ entities, activeIndex, onEntityMove });
+  const heatmapRef = useRef<HeatmapLayer | null>(null);
+  const latest = useRef({ entities, activeIndex, onEntityMove, heatmap });
   useEffect(() => {
-    latest.current = { entities, activeIndex, onEntityMove };
+    latest.current = { entities, activeIndex, onEntityMove, heatmap };
   });
 
   useEffect(() => {
@@ -108,6 +114,10 @@ export function MapView({ entities, activeIndex, onEntityMove }: Props) {
     mapRef.current = map;
 
     map.on("load", () => {
+      const layer = createHeatmapLayer(HEATMAP_LAYER);
+      map.addLayer(layer);
+      layer.setSlice(latest.current.heatmap);
+      heatmapRef.current = layer;
       map.addSource(RING_SOURCE, { type: "geojson", data: ringData(latest.current.entities) });
       map.addLayer({
         id: RING_SOURCE,
@@ -132,6 +142,7 @@ export function MapView({ entities, activeIndex, onEntityMove }: Props) {
       markers.length = 0;
       map.remove();
       mapRef.current = null;
+      heatmapRef.current = null;
     };
   }, []);
 
@@ -159,6 +170,19 @@ export function MapView({ entities, activeIndex, onEntityMove }: Props) {
     });
     map.getSource<maplibregl.GeoJSONSource>(RING_SOURCE)?.setData(ringData(entities));
   }, [entities, activeIndex]);
+
+  useEffect(() => {
+    heatmapRef.current?.setSlice(heatmap);
+    if (!heatmap) return;
+    const { west, south, east, north } = heatmap.bounds;
+    mapRef.current?.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      { padding: 40, duration: 0 },
+    );
+  }, [heatmap]);
 
   return <div ref={container} className={styles.map} aria-label="Map" />;
 }

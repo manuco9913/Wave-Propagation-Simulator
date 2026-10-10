@@ -2,7 +2,15 @@
 name = "wave-backend"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
+dependencies = [
+    "fastapi>=0.115",
+    "h5py>=3.16.0",
+    "jsonschema>=4.26.0",
+    "numpy>=2.4.6",
+    "pyproj>=3.7.2",
+    "scipy>=1.17.1",
+    "uvicorn>=0.30",
+]
 
 [dependency-groups]
 dev = [

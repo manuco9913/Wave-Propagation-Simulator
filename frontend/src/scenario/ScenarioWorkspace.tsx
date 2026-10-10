@@ -9,6 +9,7 @@ import {
 } from "react-hook-form";
 import type { Schemas } from "../api";
 import type { LngLat } from "../geo";
+import type { Slice } from "../run/slice";
 import { MapView, type MapEntity } from "../MapView";
 import { createScenarioResolver, defaultValues } from "../schema/formModel";
 import type { JsonSchema } from "../schema/jsonSchema";
@@ -21,22 +22,24 @@ const ENTITIES = "entities";
 type Props = {
   schemas: Schemas | null;
   onSubmit: (scenario: FieldValues) => void;
+  /** The current run's slice, drawn on the map. */
+  heatmap: Slice | null;
 };
 
 /** Scenario sidebar plus map; each entity's marker and coordinate fields stay in sync. */
-export function ScenarioWorkspace({ schemas, onSubmit }: Props) {
+export function ScenarioWorkspace({ schemas, onSubmit, heatmap }: Props) {
   if (!schemas) {
     return (
       <Layout
         sidebar={<h2 className={styles.title}>Scenario</h2>}
-        map={<MapView entities={[]} activeIndex={0} onEntityMove={() => {}} />}
+        map={<MapView entities={[]} activeIndex={0} onEntityMove={() => {}} heatmap={null} />}
       />
     );
   }
-  return <LoadedWorkspace schemas={schemas} onSubmit={onSubmit} />;
+  return <LoadedWorkspace schemas={schemas} onSubmit={onSubmit} heatmap={heatmap} />;
 }
 
-function LoadedWorkspace({ schemas, onSubmit }: Props & { schemas: Schemas }) {
+function LoadedWorkspace({ schemas, onSubmit, heatmap }: Props & { schemas: Schemas }) {
   const listSchema = schemas.scenario.properties?.[ENTITIES];
   const minEntities = Math.max(listSchema?.minItems ?? 1, 1);
   const maxEntities = listSchema?.maxItems ?? Infinity;
@@ -157,7 +160,14 @@ function LoadedWorkspace({ schemas, onSubmit }: Props & { schemas: Schemas }) {
           </form>
         </FormProvider>
       }
-      map={<MapView entities={mapEntities} activeIndex={activeIndex} onEntityMove={moveEntity} />}
+      map={
+        <MapView
+          entities={mapEntities}
+          activeIndex={activeIndex}
+          onEntityMove={moveEntity}
+          heatmap={heatmap}
+        />
+      }
     />
   );
 }

@@ -181,7 +181,7 @@ Fetch a single height slice of the propagation output.
 
 **Response `200`** — `application/octet-stream`
 
-Binary format:
+Binary format (all fields **little-endian**):
 
 | Offset | Size   | Type    | Field       | Notes                         |
 |--------|--------|---------|-------------|-------------------------------|
@@ -196,14 +196,19 @@ Binary format:
 | 38     | 8      | float64 | east        | bounding box east longitude   |
 | 46     | 8      | float64 | north       | bounding box north latitude   |
 | 54     | 2      | uint8×2 | reserved    | zero-padded                   |
-| 56     | W×H×4 | float32 | data        | row-major, NaN = null cell    |
+| 56     | W×H×4 | float32 | data        | row-major, row 0 = north edge, NaN = null cell |
 
 Total header size: **56 bytes**. Data follows immediately.
+
+Columns are evenly spaced in longitude and rows evenly spaced in **Web Mercator y** between
+`north` and `south`, so the grid maps linearly onto the bounding box on a Mercator map. Each cell
+is about `grid_cell_size` metres across.
 
 Null cells (outside any entity radius) are encoded as `NaN` — rendered as transparent by the shader.
 
 **Response `404`** — scenario or run not found
-**Response `422`** — height out of range
+**Response `409`** — `error: "not_ready"`: the run has no output for that height yet
+**Response `422`** — height out of range (not one of the run's heights)
 
 ---
 
