@@ -3,6 +3,7 @@ name = "wave-backend"
 version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
+    "asyncpg>=0.32.0",
     "fastapi>=0.115",
     "h5py>=3.16.0",
     "jsonschema>=4.26.0",
@@ -14,14 +15,17 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "asyncpg-stubs>=0.32.0",
     "httpx2>=2.13.1",
     "pytest>=8",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.16.10",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 100

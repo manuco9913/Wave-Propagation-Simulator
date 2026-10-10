@@ -6,7 +6,7 @@
     "preinstall": "npx only-allow pnpm",
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "pnpm --dir frontend dev",
-    "dev:backend": "cd backend && uv run uvicorn app.main:app --reload --port 8000",
+    "dev:backend": "cd backend && uv run uvicorn --factory app.main:app_from_env --reload --port 8000",
     "format": "prettier --write frontend && cd backend && uv run ruff format .",
     "format:check": "prettier --check frontend && cd backend && uv run ruff format --check .",
     "lint": "pnpm --dir frontend lint && cd backend && uv run ruff check .",

@@ -4,10 +4,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.config import Settings
+from app.main import create_app
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
-client = TestClient(app)
+# No `with`: the lifespan (database, worker) doesn't run; schema endpoints don't need it.
+client = TestClient(create_app(Settings("postgresql://unused", Path("unused"), 0)))
 
 
 @pytest.mark.parametrize("name", ["entity", "scenario"])

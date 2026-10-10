@@ -170,6 +170,9 @@ that connects late or reconnects is never stuck), then forwards live events.
 { "error": "string (code)", "message": "string", "retryable": true }
 ```
 
+Codes: `invalid_input`, `engine_crash`, `timeout`, `out_of_disk` (from the engine), and
+`interrupted` (the backend stopped while the run was running; it is not retried automatically).
+
 ### `GET /api/scenarios/{scenario_id}/runs/{run_id}/slices/{height_m}`
 
 Fetch a single height slice of the propagation output.

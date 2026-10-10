@@ -46,8 +46,8 @@ def _scenario(**overrides: object) -> JsonObject:
 
 
 @pytest.fixture
-def client(tmp_path: Path) -> Iterator[TestClient]:
-    with TestClient(create_app(Settings(tmp_path, 0))) as c:
+def client(database_url: str, tmp_path: Path) -> Iterator[TestClient]:
+    with TestClient(create_app(Settings(database_url, tmp_path, 0))) as c:
         yield c
 
 
@@ -91,8 +91,11 @@ def _run(client: TestClient, scenario: JsonObject) -> tuple[str, list[tuple[str,
     return base, _events(client, f"{base}/events")
 
 
-def test_submitted_run_streams_progress_then_serves_its_slices(tmp_path: Path) -> None:
-    with TestClient(create_app(Settings(tmp_path, fake_engine_delay_s=0.3))) as client:
+def test_submitted_run_streams_progress_then_serves_its_slices(
+    database_url: str, tmp_path: Path
+) -> None:
+    settings = Settings(database_url, tmp_path, fake_engine_delay_s=0.6)
+    with TestClient(create_app(settings)) as client:
         base, events = _run(client, _scenario())
         res = client.get(f"{base}/slices/10")
 
@@ -172,8 +175,10 @@ def test_slice_for_a_height_the_run_does_not_have_is_422(client: TestClient) -> 
     assert client.get(f"{base}/slices/0").status_code == 200
 
 
-def test_engine_failure_ends_the_stream_with_an_error_event(tmp_path: Path) -> None:
-    app = create_app(Settings(tmp_path, 0), FakeEngine(0, fail_with="timeout"))
+def test_engine_failure_ends_the_stream_with_an_error_event(
+    database_url: str, tmp_path: Path
+) -> None:
+    app = create_app(Settings(database_url, tmp_path, 0), FakeEngine(0, fail_with="timeout"))
     with TestClient(app) as client:
         _, events = _run(client, _scenario())
 
@@ -185,7 +190,9 @@ def test_engine_failure_ends_the_stream_with_an_error_event(tmp_path: Path) -> N
 
 
 def test_unknown_run_is_404(client: TestClient) -> None:
-    res = client.get("/api/scenarios/x/runs/y/events")
+    unknown = "/api/scenarios/00000000-0000-0000-0000-000000000000/runs/x"
 
-    assert res.status_code == 404
-    assert res.json()["error"] == "not_found"
+    for url in (f"{unknown}/events", f"{unknown}/slices/0"):
+        res = client.get(url)
+        assert res.status_code == 404
+        assert res.json()["error"] == "not_found"
