@@ -51,6 +51,21 @@ Top-level key is `and` or `or`. Each entry is `{ field, op, value }`.
 
 ---
 
+## Recalculation Level (`x-recalc`)
+
+Every field declares what a change to it costs once a run exists (#43):
+
+| `x-recalc` | Meaning | What happens |
+|---|---|---|
+| `engine` | MATLAB must compute again | browser shows "recompute needed"; `POST /api/scenarios/{id}/runs` creates a new run |
+| `slice` | server reprocesses stored data | browser re-requests slices with the new value as a query parameter; no new run |
+| `view` | browser only | applied to the slice already loaded; no server call |
+| `none` | text only | no effect on results |
+
+Browser-only settings that aren't schema fields (colour ramp, opacity) are `view` level.
+
+---
+
 ## Entity Schema Fields
 
 | Field | Type / widget | Constraints |

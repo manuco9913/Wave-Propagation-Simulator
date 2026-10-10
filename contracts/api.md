@@ -65,6 +65,55 @@ Returns immediately; terrain preprocessing and the engine run in the worker.
 **Response `422`** — validation error (schema, or checks the schema can't express: height range
 order, terrain coverage, unknown `file_id`, estimated output size vs free disk). See *Error format*.
 
+### `GET /api/scenarios`
+
+List scenarios, newest first.
+
+**Response `200`**
+```json
+[ { "scenario_id": "uuid", "name": "string", "updated_at": "iso8601", "run_count": 2 } ]
+```
+
+---
+
+### `GET /api/scenarios/{scenario_id}`
+
+A scenario's current configuration and its runs.
+
+**Response `200`**
+```json
+{
+  "scenario_id": "uuid",
+  "config": { ...scenario.schema.json object... },
+  "runs": [
+    { "run_id": "uuid", "status": "queued | running | done | failed", "saved_name": "string | null",
+      "created_at": "iso8601", "finished_at": "iso8601 | null" }
+  ]
+}
+```
+
+**Response `404`** — scenario not found
+
+---
+
+### `POST /api/scenarios/{scenario_id}/runs`
+
+Re-run a scenario after an **engine-level** change (`x-recalc: "engine"`, see `contracts.md`).
+Body is the full edited configuration (validates against `scenario.schema.json`); it becomes the
+scenario's current configuration and the new run's frozen snapshot.
+
+Query: `discard_unsaved=true` — confirms the current unsaved run may be deleted.
+
+**Response `201`**
+```json
+{ "run_id": "uuid" }
+```
+
+**Response `409`** — `error: "unsaved_run_exists"` with `run_id` of the unsaved run (the client
+asks the user, then retries with `discard_unsaved=true`), or `error: "run_in_progress"` (a run is
+queued/running — cancel it first).
+**Response `422`** — validation error
+
 ---
 
 ## File Endpoints
@@ -126,6 +175,9 @@ that connects late or reconnects is never stuck), then forwards live events.
 Fetch a single height slice of the propagation output.
 
 - `height_m` — height in metres (integer or float, must fall within the scenario's `height_range`)
+- Optional query parameters override **slice-level** settings (`x-recalc: "slice"`) without a
+  new run: `combination_method`, `grid_cell_size`. When absent, the run's view settings apply,
+  else the run's snapshot. Nothing derived from an override is stored.
 
 **Response `200`** — `application/octet-stream`
 
@@ -152,6 +204,22 @@ Null cells (outside any entity radius) are encoded as `NaN` — rendered as tran
 
 **Response `404`** — scenario or run not found
 **Response `422`** — height out of range
+
+---
+
+### `PUT /api/scenarios/{scenario_id}/runs/{run_id}/view`
+
+Save the run's view settings — the slice-level and browser-level settings the user chose
+(e.g. combination method, grid cell size, colour ramp, opacity). Only called after the user
+confirms "save changes". Settings only; no derived data is ever stored.
+
+**Request body**
+```json
+{ "combination_method": "max", "grid_cell_size": 100, "color_ramp": { ... }, "opacity": 0.8 }
+```
+
+**Response `200`** — the stored view settings
+**Response `404`** — scenario or run not found
 
 ---
 

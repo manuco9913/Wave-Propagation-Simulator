@@ -19,11 +19,13 @@
   "additionalProperties": false,
   "properties": {
     "name": {
+      "x-recalc": "none",
       "type": "string",
       "title": "Name",
       "minLength": 1
     },
     "height_range": {
+      "x-recalc": "engine",
       "type": "object",
       "title": "Height Range",
       "x-ui-component": "range",
@@ -36,12 +38,14 @@
       }
     },
     "height_step": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Height Step",
       "minimum": 1,
       "x-unit": "m"
     },
     "height_reference": {
+      "x-recalc": "engine",
       "type": "string",
       "title": "Height Reference",
       "description": "Whether the height axis (height_range) is measured above ground or above sea level.",
@@ -49,6 +53,7 @@
       "default": "ground"
     },
     "angular_resolution": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Angular Resolution",
       "minimum": 0.01,
@@ -57,6 +62,7 @@
       "x-unit": "°"
     },
     "distance_step": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Distance Step",
       "description": "Spacing between samples along each ray, from the entity outward.",
@@ -65,6 +71,7 @@
       "x-unit": "m"
     },
     "grid_cell_size": {
+      "x-recalc": "slice",
       "type": "number",
       "title": "Grid Cell Size",
       "minimum": 1,
@@ -72,17 +79,20 @@
       "x-unit": "m"
     },
     "terrain_enabled": {
+      "x-recalc": "engine",
       "type": "boolean",
       "title": "Terrain Enabled",
       "default": true
     },
     "combination_method": {
+      "x-recalc": "slice",
       "type": "string",
       "title": "Combination Method",
       "enum": ["max", "mean", "sum"],
       "default": "max"
     },
     "entities": {
+      "x-recalc": "engine",
       "type": "array",
       "title": "Entities",
       "minItems": 1,

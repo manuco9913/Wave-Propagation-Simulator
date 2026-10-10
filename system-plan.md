@@ -152,7 +152,7 @@ and its result. There is no separate "job" concept — the queue holds runs.
 - **Per-run store**: the scenario snapshot, entity parameters, angles, distances and terrain are
   saved in a **separate HDF5 file per run** (plus MATLAB's output files in the same folder), not
   in PostgreSQL. A slice request reads what it needs from it. See *Per-Run Store*.
-- How re-running works, and which changes need a recompute: TBD-2.
+- Re-running and which changes need a recompute: see *Re-run and Recalculation Levels*.
 
 ---
 
@@ -255,6 +255,37 @@ Viewing
 **MATLAB location**: Configurable — same machine (child process) or separate compute
 server (REST wrapper). Abstracted behind one engine interface (fake engine first, MATLAB later);
 switching requires only a config change. Exact interface: TBD-3.
+
+---
+
+## Re-run and Recalculation Levels (#43)
+
+Every schema field carries `x-recalc` (see `contracts.md`), so browser and server share one
+classification:
+
+| Level | Fields | Effect of a change |
+|---|---|---|
+| **engine** — recompute | scenario: `height_range`, `height_step`, `height_reference`, `angular_resolution`, `distance_step`, `terrain_enabled`, `entities` (add/remove); entity: `position`, `frequency`, `power`, `azimuth`, `antenna_height`, `radius`, `beam_width`, `tilt` | New run via `POST /api/scenarios/{id}/runs` (frozen snapshot). `beam_width`/`tilt` provisionally here — #49 may move them to `slice` |
+| **slice** — server reprocesses | `combination_method`, `grid_cell_size`; also the current height | Browser re-requests slices with the new value as a query parameter; no new run |
+| **view** — browser only | colour ramp, opacity | Applied to the loaded slice; no server call |
+| **none** | scenario `name`, entity `label` | — |
+
+**Rules**
+- **Derived data is never stored.** Anything recomputable from a run's stored data (gain-applied
+  slices, map rasters, coloured images) is recomputed on demand, not saved.
+- **Settings are stored only on confirmation.** A run has optional *view settings* (slice- and
+  view-level choices, small JSON in its PostgreSQL row). They are written only when the user
+  confirms "save changes" (`PUT …/runs/{id}/view`); otherwise the run's snapshot values apply.
+- **Saved runs stay editable.** Opening a saved run and changing anything shows a clear banner
+  — *"Modifying saved run '<name>'"*. When the user leaves it (opens another run or scenario,
+  closes the tab) they are asked **save changes or not**:
+  - slice/view changes only → save updates the run's view settings;
+  - an engine-level change produced a new run → save stores that new run under a name; the
+    original saved run's results are untouched.
+- **Server-enforced conflicts**: re-run while the current run is unsaved → `409
+  unsaved_run_exists` (browser asks, retries with `discard_unsaved=true`); re-run while a run is
+  queued/running → `409 run_in_progress` (cancel first, #51).
+- **Coming back later**: `GET /api/scenarios` (list) and `GET /api/scenarios/{id}` (config + runs).
 
 ---
 
@@ -423,7 +454,7 @@ agent implements it.
 | # | Topic | What's open |
 |---|---|---|
 | TBD-1 (#49) | **Beam width and recalculation** | Beam width is part of the recalculation logic (TBD-2): which level a beam-width change triggers, and whether beam width can be edited after a run. Must be reconciled with "gain applied at slice time". |
-| TBD-2 (#43) | **Re-run and recalculation levels** | Three levels of change: (1) needs a **recompute** by the engine; (2) needs the **slice re-fetched** and reprocessed server-side; (3) can be applied **in the browser** on the already-loaded slice. Classify every field into a level. Re-run endpoint, and how the "one unsaved run per scenario" conflict is enforced. |
+| TBD-2 (#43) | **Re-run and recalculation levels** | **Decided** — see *Re-run and Recalculation Levels*. |
 | TBD-3 (#44) | **Engine interface** | **Signed off** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open only: MATLAB-developer questions Q-M2, Q-M5–Q-M8 (fake engine uses defaults). |
 | TBD-4 (#50) | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
 | TBD-5 (#51) | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |

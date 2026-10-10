@@ -8,10 +8,12 @@
   "additionalProperties": false,
   "properties": {
     "label": {
+      "x-recalc": "none",
       "type": "string",
       "title": "Label"
     },
     "position": {
+      "x-recalc": "engine",
       "type": "object",
       "title": "Position",
       "x-ui-component": "coordinate",
@@ -31,6 +33,7 @@
       }
     },
     "frequency": {
+      "x-recalc": "engine",
       "title": "Frequency",
       "x-ui-component": "numeric-or-file",
       "x-unit": "MHz",
@@ -40,6 +43,7 @@
       ]
     },
     "power": {
+      "x-recalc": "engine",
       "title": "Power",
       "x-ui-component": "numeric-or-file",
       "x-unit": "dBm",
@@ -49,6 +53,7 @@
       ]
     },
     "azimuth": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Azimuth",
       "minimum": 0,
@@ -56,6 +61,7 @@
       "x-unit": "°"
     },
     "beam_width": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Beam Width",
       "description": "Vertical half-power beamwidth of the antenna. The antenna covers the full 360° horizontally. Omitted = no vertical gain pattern (isotropic).",
@@ -64,6 +70,7 @@
       "x-unit": "°"
     },
     "tilt": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Antenna Tilt",
       "description": "Elevation of the beam's main axis above the horizon. Negative = downtilt.",
@@ -74,12 +81,14 @@
       "x-paired-with": "beam_width"
     },
     "antenna_height": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Antenna Height",
       "minimum": 0,
       "x-unit": "m"
     },
     "radius": {
+      "x-recalc": "engine",
       "type": "number",
       "title": "Radius",
       "minimum": 0.1,
