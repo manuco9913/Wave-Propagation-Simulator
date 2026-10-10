@@ -11,6 +11,8 @@ type Entry<T> =
  */
 export class SliceWindow<T> {
   private entries = new Map<number, Entry<T>>();
+  private focused = 0;
+  private lastShown: T | undefined;
   private readonly fetchLevel: (index: number) => Promise<T>;
   private readonly levels: number;
   private readonly onChange: () => void;
@@ -22,6 +24,7 @@ export class SliceWindow<T> {
   }
 
   focus(index: number): void {
+    this.focused = index;
     // nearest first, so the focused level is requested before its neighbours
     const wanted = [index];
     for (let d = 1; d <= PREFETCH_RADIUS; d++) wanted.push(index - d, index + d);
@@ -35,6 +38,13 @@ export class SliceWindow<T> {
       if (!entry || entry.state === "failed") this.load(i);
     }
     this.onChange();
+  }
+
+  /** The focused level's slice; while it loads, the last focused slice that was ready. */
+  shown(): T | undefined {
+    const current = this.get(this.focused);
+    if (current !== undefined) this.lastShown = current;
+    return this.lastShown;
   }
 
   get(index: number): T | undefined {

@@ -173,7 +173,7 @@ test("a scenario the server rejects shows the server's field errors", async () =
 const HEIGHTS = [0, 10, 20, 30, 40, 50];
 
 /** Serves every height of run s1/r1, each with its own dBm value (-height - 50). */
-async function finishedRun() {
+async function finishedRun(extra: Record<string, Route> = {}) {
   const base = "/api/scenarios/s1/runs/r1";
   const slices = Object.fromEntries(
     HEIGHTS.map((h) => [`${base}/slices/${h}`, () => new Response(sliceBody(-h - 50))]),
@@ -182,6 +182,7 @@ async function finishedRun() {
     ...schemaRoutes,
     "/api/scenarios": json({ scenario_id: "s1", run_id: "r1" }, 201),
     ...slices,
+    ...extra,
   });
   render(<App />);
   await fillAndSubmit();
@@ -190,7 +191,8 @@ async function finishedRun() {
   await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("0 m · -50"));
   const sliceUrls = () =>
     fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes("/slices/"));
-  return { base, sliceUrls };
+  const calls = (url: string) => fetchMock.mock.calls.filter(([u]) => String(u) === url);
+  return { base, sliceUrls, calls };
 }
 
 test("after a run, the levels either side of the shown height are prefetched", async () => {
@@ -222,4 +224,89 @@ test("typing a height jumps to that level, snapping to the nearest one", async (
   await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("40 m · -90"));
   expect(screen.getByLabelText("Height level")).toHaveValue("4");
   expect(input).toHaveValue(40);
+});
+
+test("a finished run can be saved under a name", async () => {
+  const { base, calls } = await finishedRun({
+    "/api/scenarios/s1/runs/r1/save": json({ run_id: "r1", name: "baseline" }),
+  });
+
+  fireEvent.change(screen.getByLabelText("Run name"), { target: { value: " baseline " } });
+  fireEvent.click(screen.getByRole("button", { name: /save run/i }));
+
+  expect(await screen.findByText("Saved as baseline")).toBeInTheDocument();
+  const [, init] = calls(`${base}/save`)[0]!;
+  expect(init?.method).toBe("POST");
+  expect(JSON.parse(String(init?.body))).toEqual({ name: "baseline" });
+});
+
+const unsavedConflict = json(
+  { error: "unsaved_run_exists", message: "the current result is not saved", run_id: "r1" },
+  409,
+);
+
+test("running again over an unsaved result asks first, then discards it", async () => {
+  const { calls } = await finishedRun({
+    "/api/scenarios/s1/runs": unsavedConflict,
+    "/api/scenarios/s1/runs?discard_unsaved=true": json({ run_id: "r2" }, 201),
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: /run simulation/i }));
+
+  const dialog = await screen.findByRole("alertdialog", { name: "Discard unsaved result?" });
+  // the old result is still on screen while the user decides
+  expect(screen.getByTestId("run-status")).toHaveTextContent("0 m · -50");
+  expect(calls("/api/scenarios/s1/runs?discard_unsaved=true")).toHaveLength(0);
+
+  fireEvent.click(within(dialog).getByRole("button", { name: /discard and run/i }));
+
+  await waitFor(() => expect(FakeEventSource.last?.url).toBe("/api/scenarios/s1/runs/r2/events"));
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  const [, init] = calls("/api/scenarios/s1/runs?discard_unsaved=true")[0]!;
+  expect(JSON.parse(String(init?.body))).toMatchObject({ name: "Golden path" });
+});
+
+test("cancelling the discard question keeps the result and runs nothing", async () => {
+  const { calls } = await finishedRun({ "/api/scenarios/s1/runs": unsavedConflict });
+  const sse = FakeEventSource.last;
+
+  fireEvent.click(screen.getByRole("button", { name: /run simulation/i }));
+  const dialog = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: /cancel/i }));
+
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(screen.getByTestId("run-status")).toHaveTextContent("0 m · -50");
+  expect(screen.getByText("Unsaved result")).toBeInTheDocument();
+  expect(calls("/api/scenarios/s1/runs?discard_unsaved=true")).toHaveLength(0);
+  expect(FakeEventSource.last).toBe(sse);
+});
+
+test("a saved run can be opened again later from the saved runs list", async () => {
+  serve({
+    ...schemaRoutes,
+    "/api/scenarios": json([
+      { scenario_id: "s9", name: "Old study", updated_at: "2026-10-01T00:00:00Z", run_count: 2 },
+      { scenario_id: "s8", name: "Empty", updated_at: "2026-09-01T00:00:00Z", run_count: 0 },
+    ]),
+    "/api/scenarios/s9": json({
+      scenario_id: "s9",
+      config: {},
+      runs: [
+        { run_id: "r8", status: "done", saved_name: null, created_at: "", finished_at: "" },
+        { run_id: "r9", status: "done", saved_name: "baseline", created_at: "", finished_at: "" },
+      ],
+    }),
+    "/api/scenarios/s9/runs/r9/slices/0": () => new Response(sliceBody(-61)),
+  });
+  render(<App />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Saved runs" }));
+  const dialog = await screen.findByRole("dialog", { name: "Saved runs" });
+  fireEvent.click(await within(dialog).findByRole("button", { name: "Old study · baseline" }));
+
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await waitFor(() => expect(FakeEventSource.last?.url).toBe("/api/scenarios/s9/runs/r9/events"));
+  act(() => FakeEventSource.last!.emit("done", { heights: [0] }));
+  await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("0 m · -61"));
+  expect(screen.getByText("Saved as baseline")).toBeInTheDocument();
 });

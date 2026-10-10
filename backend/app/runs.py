@@ -16,6 +16,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -83,6 +84,20 @@ class Run:
         }
 
 
+class RunConflict(Exception):
+    """A request the run's or scenario's current state doesn't allow (HTTP 409)."""
+
+    def __init__(self, error: str, message: str, run_id: str | None = None) -> None:
+        super().__init__(message)
+        self.error = error
+        self.message = message
+        self.run_id = run_id
+
+
+def _iso(value: object) -> str | None:
+    return value.isoformat() if isinstance(value, datetime) else None
+
+
 def _uuid(value: str) -> uuid.UUID | None:
     try:
         return uuid.UUID(value)
@@ -132,6 +147,134 @@ class RunQueue:
             await conn.execute("SELECT pg_notify($1, $2)", QUEUED_CHANNEL, str(run_id))
         assert row is not None
         return Run.from_row(row)
+
+    async def rerun(self, scenario_id: str, scenario: JsonObject, discard_unsaved: bool) -> Run:
+        """Makes `scenario` the scenario's configuration and queues a run of it.
+
+        Refused while a run is queued/running, and while an unsaved result exists unless
+        `discard_unsaved` (then that result is deleted). Raises KeyError for no such scenario.
+        """
+        sid = _uuid(scenario_id)
+        if sid is None:
+            raise KeyError(scenario_id)
+        run_id = uuid.uuid4()
+        config = json.dumps(scenario)
+        async with self._pool.acquire() as conn, conn.transaction():
+            # The row lock serializes re-runs of one scenario.
+            if not await conn.fetchval("SELECT 1 FROM scenarios WHERE id = $1 FOR UPDATE", sid):
+                raise KeyError(scenario_id)
+            runs = await conn.fetch(
+                "SELECT * FROM runs WHERE scenario_id = $1 AND saved_name IS NULL", sid
+            )
+            busy = [r for r in runs if r["status"] in ("queued", "running")]
+            if busy:
+                raise RunConflict(
+                    "run_in_progress",
+                    "a run of this scenario is queued or running",
+                    str(busy[0]["id"]),
+                )
+            unsaved = [Run.from_row(r) for r in runs if r["status"] == "done"]
+            if unsaved and not discard_unsaved:
+                raise RunConflict(
+                    "unsaved_run_exists", "the current result is not saved", unsaved[0].run_id
+                )
+            await conn.execute(
+                "DELETE FROM runs WHERE scenario_id = $1 AND saved_name IS NULL", sid
+            )
+            await conn.execute(
+                "UPDATE scenarios SET config = $2::jsonb, updated_at = now() WHERE id = $1",
+                sid,
+                config,
+            )
+            row = await conn.fetchrow(
+                "INSERT INTO runs (id, scenario_id, snapshot, folder)"
+                " VALUES ($1, $2, $3::jsonb, $4) RETURNING *",
+                run_id,
+                sid,
+                config,
+                f"tmp/{run_id}",
+            )
+            await conn.execute("SELECT pg_notify($1, $2)", QUEUED_CHANNEL, str(run_id))
+        for old in unsaved:
+            shutil.rmtree(self.run_dir(old), ignore_errors=True)
+        assert row is not None
+        return Run.from_row(row)
+
+    async def save(self, run: Run, name: str) -> None:
+        """Moves a finished run's folder from tmp/ to saved/ and names it; kept for good."""
+        if run.status != "done":
+            raise RunConflict("run_not_done", "only a finished run can be saved")
+        saved_folder = f"saved/{run.run_id}"
+        async with self._pool.acquire() as conn, conn.transaction():
+            updated = await conn.fetchval(
+                "UPDATE runs SET saved_name = $2, folder = $3"
+                " WHERE id = $1 AND saved_name IS NULL RETURNING id",
+                uuid.UUID(run.run_id),
+                name,
+                saved_folder,
+            )
+            if updated is None:
+                raise RunConflict("already_saved", "the run is already saved")
+            target = self.runs_dir / saved_folder
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # A rename on the same disk; if it fails, the transaction rolls back.
+            self.run_dir(run).rename(target)
+
+    async def discard(self, run: Run) -> None:
+        """Deletes an unsaved, finished (or failed) run and its folder."""
+        if run.status in ("queued", "running"):
+            raise RunConflict("run_in_progress", "the run is queued or running")
+        deleted = await self._pool.fetchval(
+            "DELETE FROM runs WHERE id = $1 AND saved_name IS NULL RETURNING id",
+            uuid.UUID(run.run_id),
+        )
+        if deleted is None:
+            raise RunConflict("run_saved", "saved runs cannot be discarded")
+        shutil.rmtree(self.run_dir(run), ignore_errors=True)
+
+    async def list_scenarios(self) -> list[JsonObject]:
+        rows = await self._pool.fetch(
+            "SELECT s.id, s.config->>'name' AS name, s.updated_at, count(r.id) AS run_count"
+            " FROM scenarios s LEFT JOIN runs r ON r.scenario_id = s.id"
+            " GROUP BY s.id ORDER BY s.created_at DESC"
+        )
+        return [
+            {
+                "scenario_id": str(r["id"]),
+                "name": r["name"],
+                "updated_at": _iso(r["updated_at"]),
+                "run_count": r["run_count"],
+            }
+            for r in rows
+        ]
+
+    async def scenario(self, scenario_id: str) -> JsonObject | None:
+        """The scenario's current configuration and its runs, oldest first."""
+        sid = _uuid(scenario_id)
+        if sid is None:
+            return None
+        config = await self._pool.fetchval("SELECT config FROM scenarios WHERE id = $1", sid)
+        if config is None:
+            return None
+        runs = await self._pool.fetch(
+            "SELECT id, status, saved_name, created_at, finished_at FROM runs"
+            " WHERE scenario_id = $1 ORDER BY created_at",
+            sid,
+        )
+        return {
+            "scenario_id": scenario_id,
+            "config": json.loads(config),
+            "runs": [
+                {
+                    "run_id": str(r["id"]),
+                    "status": r["status"],
+                    "saved_name": r["saved_name"],
+                    "created_at": _iso(r["created_at"]),
+                    "finished_at": _iso(r["finished_at"]),
+                }
+                for r in runs
+            ],
+        }
 
     async def get(self, scenario_id: str, run_id: str) -> Run | None:
         sid, rid = _uuid(scenario_id), _uuid(run_id)

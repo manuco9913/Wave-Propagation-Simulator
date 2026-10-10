@@ -58,6 +58,63 @@ export async function submitScenario(scenario: unknown): Promise<RunRef> {
   return (await res.json()) as RunRef;
 }
 
+/** Re-runs a scenario with an edited configuration (contracts/api.md). */
+export async function rerunScenario(
+  scenarioId: string,
+  scenario: unknown,
+  discardUnsaved: boolean,
+): Promise<RunRef> {
+  const query = discardUnsaved ? "?discard_unsaved=true" : "";
+  const res = await fetch(`/api/scenarios/${scenarioId}/runs${query}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(scenario),
+  });
+  if (!res.ok) throw await apiError(res);
+  const { run_id } = (await res.json()) as { run_id: string };
+  return { scenario_id: scenarioId, run_id };
+}
+
+export async function saveRun(run: RunRef, name: string): Promise<void> {
+  const res = await fetch(`${runUrl(run)}/save`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw await apiError(res);
+}
+
+export interface ScenarioSummary {
+  scenario_id: string;
+  name: string;
+  updated_at: string;
+  run_count: number;
+}
+
+export interface ScenarioDetail {
+  scenario_id: string;
+  config: unknown;
+  runs: {
+    run_id: string;
+    status: string;
+    saved_name: string | null;
+    created_at: string;
+    finished_at: string | null;
+  }[];
+}
+
+export async function listScenarios(): Promise<ScenarioSummary[]> {
+  const res = await fetch("/api/scenarios");
+  if (!res.ok) throw await apiError(res);
+  return (await res.json()) as ScenarioSummary[];
+}
+
+export async function getScenario(scenarioId: string): Promise<ScenarioDetail> {
+  const res = await fetch(`/api/scenarios/${scenarioId}`);
+  if (!res.ok) throw await apiError(res);
+  return (await res.json()) as ScenarioDetail;
+}
+
 function runUrl({ scenario_id, run_id }: RunRef): string {
   return `/api/scenarios/${scenario_id}/runs/${run_id}`;
 }

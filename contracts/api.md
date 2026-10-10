@@ -110,8 +110,9 @@ Query: `discard_unsaved=true` — confirms the current unsaved run may be delete
 ```
 
 **Response `409`** — `error: "unsaved_run_exists"` with `run_id` of the unsaved run (the client
-asks the user, then retries with `discard_unsaved=true`), or `error: "run_in_progress"` (a run is
-queued/running — cancel it first).
+asks the user, then retries with `discard_unsaved=true`), or `error: "run_in_progress"` with the
+`run_id` that is queued/running (cancel it first).
+**Response `404`** — scenario not found
 **Response `422`** — validation error
 
 ---
@@ -246,7 +247,9 @@ permanent storage; unsaved runs are discarded when the user declines to save.
 { "run_id": "uuid", "name": "string" }
 ```
 
-**Response `409`** — run already saved
+**Response `409`** — `error: "already_saved"`, or `error: "run_not_done"` (only a finished run
+can be saved)
+**Response `422`** — missing or empty `name`
 
 ---
 
@@ -256,7 +259,8 @@ Discard an unsaved run. Deletes the associated HDF5 file and metadata.
 
 **Response `204`** — deleted
 
-**Response `409`** — run is saved (saved runs cannot be deleted via this endpoint)
+**Response `409`** — `error: "run_saved"` (saved runs cannot be deleted via this endpoint), or
+`error: "run_in_progress"` (the run is queued or running)
 
 ---
 

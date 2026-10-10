@@ -1,0 +1,29 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm);
+  cursor: pointer;
+}
+.item:hover {
+  color: var(--color-accent);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-muted);
+}

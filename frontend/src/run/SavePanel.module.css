@@ -1,0 +1,53 @@
+.panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.unsaved {
+  color: var(--color-warning);
+  text-transform: uppercase;
+}
+
+.saved {
+  color: var(--color-success);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-xs);
+  font: inherit;
+  background: var(--color-bg);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.button {
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-surface);
+  background: var(--color-accent);
+  border: var(--border-w) solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+}
+.button:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.error {
+  color: var(--color-danger);
+}

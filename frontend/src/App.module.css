@@ -95,3 +95,25 @@
     opacity: 0;
   }
 }
+
+.topButton {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text);
+  background: transparent;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+}
+.topButton:hover {
+  background: var(--color-bg);
+}
+
+.overlayStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}

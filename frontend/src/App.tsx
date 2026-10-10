@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import type { FieldValues } from "react-hook-form";
 import { fetchSchemas, type Schemas } from "./api";
 import styles from "./App.module.css";
+import { Dialog, dialogStyles } from "./dialog/Dialog";
 import { HeightControl } from "./height/HeightControl";
+import { SavedRuns } from "./run/SavedRuns";
+import { SavePanel } from "./run/SavePanel";
 import { type HeightSlices, useHeightSlices } from "./run/useHeightSlices";
 import { type RunState, useRun } from "./run/useRun";
 import { ScenarioWorkspace } from "./scenario/ScenarioWorkspace";
@@ -15,6 +18,7 @@ export function App() {
   const run = useRun();
   const done = run.state.kind === "done" ? run.state : null;
   const heights = useHeightSlices(done?.run ?? null, done?.heights ?? NO_HEIGHTS);
+  const [showSaved, setShowSaved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +64,9 @@ export function App() {
           <div className={styles.status} data-testid="schema-status">
             schemas: {status}
           </div>
+          <button type="button" className={styles.topButton} onClick={() => setShowSaved(true)}>
+            Saved runs
+          </button>
         </div>
       </header>
       <ScenarioWorkspace
@@ -67,15 +74,51 @@ export function App() {
         onSubmit={submit}
         heatmap={heights.slice}
         mapOverlay={
-          done && done.heights.length > 0 ? (
-            <HeightControl
-              heights={done.heights}
-              index={heights.index}
-              onChange={heights.setIndex}
-            />
+          done ? (
+            <div className={styles.overlayStack}>
+              <SavePanel savedName={done.savedName} onSave={run.save} />
+              {done.heights.length > 0 && (
+                <HeightControl
+                  heights={done.heights}
+                  index={heights.index}
+                  onChange={heights.setIndex}
+                />
+              )}
+            </div>
           ) : null
         }
       />
+      {run.pendingDiscard && (
+        <Dialog
+          title="Discard unsaved result?"
+          role="alertdialog"
+          actions={
+            <>
+              <button type="button" className={dialogStyles.button} onClick={run.cancelDiscard}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${dialogStyles.button} ${dialogStyles.danger}`}
+                onClick={() => void run.confirmDiscard()}
+              >
+                Discard and run
+              </button>
+            </>
+          }
+        >
+          The current result has not been saved. Running again deletes it. Save it first to keep it.
+        </Dialog>
+      )}
+      {showSaved && (
+        <SavedRuns
+          onClose={() => setShowSaved(false)}
+          onOpen={(ref, name) => {
+            setShowSaved(false);
+            run.view(ref, name);
+          }}
+        />
+      )}
     </div>
   );
 }
