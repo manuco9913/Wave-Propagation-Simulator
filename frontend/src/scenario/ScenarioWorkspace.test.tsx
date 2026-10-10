@@ -69,7 +69,9 @@ function fixtureSchemas(minEntities = 1, maxEntities = 10): Schemas {
 
 function setup(schemas = fixtureSchemas()) {
   const onSubmit = vi.fn<(scenario: FieldValues) => void>();
-  render(<ScenarioWorkspace schemas={schemas} onSubmit={onSubmit} heatmap={null} />);
+  render(
+    <ScenarioWorkspace schemas={schemas} onSubmit={onSubmit} heatmap={null} mapOverlay={null} />,
+  );
   return { onSubmit };
 }
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { FieldValues } from "react-hook-form";
 import { fetchSchemas, type Schemas } from "./api";
 import styles from "./App.module.css";
+import { HeightControl } from "./height/HeightControl";
+import { type HeightSlices, useHeightSlices } from "./run/useHeightSlices";
 import { type RunState, useRun } from "./run/useRun";
 import { ScenarioWorkspace } from "./scenario/ScenarioWorkspace";
 
@@ -11,6 +13,8 @@ export function App() {
   const [status, setStatus] = useState<Status>("loading");
   const [schemas, setSchemas] = useState<Schemas | null>(null);
   const run = useRun();
+  const done = run.state.kind === "done" ? run.state : null;
+  const heights = useHeightSlices(done?.run ?? null, done?.heights ?? NO_HEIGHTS);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,12 +32,9 @@ export function App() {
   }, []);
 
   function submit(scenario: FieldValues) {
-    // One height for now: the lowest. The height slider comes with #33.
-    const lowest: unknown = scenario.height_range?.min;
-    void run.submit(scenario, typeof lowest === "number" ? lowest : 0);
+    void run.submit(scenario);
   }
 
-  const heatmap = run.state.kind === "done" ? run.state.slice : null;
   const busy = run.state.kind === "running" || run.state.kind === "submitting";
 
   return (
@@ -54,19 +55,34 @@ export function App() {
             data-busy={busy ? "" : undefined}
             role="status"
           >
-            {runStatusText(run.state)}
+            {runStatusText(run.state, heights)}
           </div>
           <div className={styles.status} data-testid="schema-status">
             schemas: {status}
           </div>
         </div>
       </header>
-      <ScenarioWorkspace schemas={schemas} onSubmit={submit} heatmap={heatmap} />
+      <ScenarioWorkspace
+        schemas={schemas}
+        onSubmit={submit}
+        heatmap={heights.slice}
+        mapOverlay={
+          done && done.heights.length > 0 ? (
+            <HeightControl
+              heights={done.heights}
+              index={heights.index}
+              onChange={heights.setIndex}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 }
 
-function runStatusText(state: RunState): string {
+const NO_HEIGHTS: readonly number[] = [];
+
+function runStatusText(state: RunState, heights: HeightSlices): string {
   switch (state.kind) {
     case "idle":
       return "";
@@ -74,10 +90,12 @@ function runStatusText(state: RunState): string {
       return "Submitting";
     case "running":
       return `${state.message} · ${Math.round(state.percent)}%`;
-    case "loading-slice":
-      return "Loading result";
-    case "done":
-      return `${state.heightM} m · ${dbm(state.slice.min)} … ${dbm(state.slice.max)} dBm`;
+    case "done": {
+      const height = `${state.heights[heights.index] ?? "–"} m`;
+      if (heights.error) return `${height} · Failed: ${heights.error}`;
+      if (heights.loading || !heights.slice) return `${height} · loading`;
+      return `${height} · ${dbm(heights.slice.min)} … ${dbm(heights.slice.max)} dBm`;
+    }
     case "rejected":
       return `Rejected: ${state.message}`;
     case "failed":

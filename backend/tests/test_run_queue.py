@@ -112,5 +112,5 @@ def test_run_status_survives_a_backend_restart_mid_run(database_url: str, tmp_pa
             "retryable": True,
         },
     )
-    assert finished[-1] == ("done", {})
+    assert finished[-1] == ("done", {"heights": [0, 10, 20, 30, 40, 50]})
     assert not (tmp_path / "tmp" / interrupted["run_id"]).exists()

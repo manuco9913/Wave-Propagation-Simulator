@@ -24,6 +24,7 @@ from asyncpg.pool import PoolConnectionProxy
 
 from app.engine import Engine
 from app.pipeline import Progress, run_pipeline
+from app.scenario import expand_heights
 from app.types import JsonObject
 
 EVENTS_CHANNEL = "run_events"
@@ -68,6 +69,10 @@ class Run:
             error=json.loads(error) if error is not None else None,
             folder=row["folder"],
         )
+
+    def done_event(self) -> JsonObject:
+        """The `done` payload: the heights the run has slices for, lowest first."""
+        return {"heights": expand_heights(self.snapshot).tolist()}
 
     def snapshot_event(self) -> JsonObject:
         return {
@@ -146,7 +151,7 @@ class RunQueue:
             current = await self.get(run.scenario_id, run.run_id) or run
             yield ("status", current.snapshot_event())
             if current.status == "done":
-                yield ("done", {})
+                yield ("done", current.done_event())
                 return
             if current.status == "failed":
                 yield ("error", current.error or {})
@@ -181,14 +186,14 @@ class RunQueue:
             )
             await _notify(conn, run_id, "progress", data)
 
-    async def finish(self, run_id: str) -> None:
+    async def finish(self, run: Run) -> None:
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
                 "UPDATE runs SET status = 'done', percent = 100, message = 'Done',"
                 " finished_at = now() WHERE id = $1",
-                uuid.UUID(run_id),
+                uuid.UUID(run.run_id),
             )
-            await _notify(conn, run_id, "done", {})
+            await _notify(conn, run.run_id, "done", run.done_event())
 
     async def fail(self, run: Run, error: JsonObject, conn: Conn | None = None) -> None:
         """Marks the run failed and deletes its folder (failed runs keep nothing)."""
@@ -332,7 +337,7 @@ class Worker:
         finally:
             await self.release(run)
         if failure is None:
-            await self._queue.finish(run.run_id)
+            await self._queue.finish(run)
         else:
             error = {
                 "error": failure.error,

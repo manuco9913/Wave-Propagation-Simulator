@@ -151,3 +151,11 @@
   position: relative;
   background: var(--color-bg);
 }
+
+.overlay {
+  position: absolute;
+  left: var(--space-xl);
+  right: var(--space-xl);
+  bottom: var(--space-xl);
+  z-index: 1;
+}

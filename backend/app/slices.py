@@ -6,6 +6,7 @@ Per entity: read the polar [D x A] slice, apply the vertical antenna gain, resam
 map grid; then combine the entities cell by cell. Nothing here is stored.
 """
 
+import functools
 import struct
 import warnings
 from dataclasses import dataclass
@@ -69,15 +70,15 @@ def render_slice(
     cell = grid_cell_size or float(run.scenario["grid_cell_size"])
     ground_ref = run.scenario["height_reference"] == "ground"
 
-    grid = _grid(run.entities, cell)
-    lon_mesh, lat_mesh = np.meshgrid(grid.lons, grid.lats)
+    grid, coords = _coordinates(params_path, cell)
+    shape = (grid.lats.size, grid.lons.size)
     layers: list[Floats32] = []
-    for index, entity in enumerate(run.entities):
+    for index, (entity, entity_coords) in enumerate(zip(run.entities, coords, strict=True)):
         polar = read_height_slice(entity_output_path(run_dir, index), height_index)
         if polar is None:
             raise SliceError("not_ready", f"entity {index + 1} has no data at {height_m} m")
         polar = polar + _vertical_gain(entity, float(run.heights[height_index]), ground_ref)
-        layers.append(_rasterize(entity, polar, lon_mesh, lat_mesh))
+        layers.append(_rasterize(polar, entity_coords, shape))
     return Slice(grid, _combine(layers, method))
 
 
@@ -129,25 +130,51 @@ def _vertical_gain(entity: StoredEntity, height: float, ground_ref: bool) -> Flo
     return gain.T  # [A x D] -> [D x A]
 
 
+@dataclass(frozen=True)
+class _PolarCoords:
+    """Where each map cell inside an entity's radius falls in that entity's polar slice."""
+
+    cells: npt.NDArray[np.intp]  # flat indices into the [H x W] grid
+    r_index: Floats32  # fractional distance index
+    theta_index: Floats32  # fractional azimuth index (A == 360°, wrapped)
+
+
+@functools.lru_cache(maxsize=2)
+def _coordinates(params_path: Path, cell_m: float) -> tuple[Grid, tuple[_PolarCoords, ...]]:
+    """The grid and per-entity polar coordinates; computed on a run's first slice request and
+    kept in memory for the active run(s) (system-plan.md, Coordinate arrays)."""
+    run = read_params(params_path)
+    grid = _grid(run.entities, cell_m)
+    lon_mesh, lat_mesh = np.meshgrid(grid.lons, grid.lats)
+    coords: list[_PolarCoords] = []
+    for entity in run.entities:
+        pos = entity.entity["position"]
+        bearing, _, dist = GEOD.inv(
+            np.full_like(lon_mesh, pos["lon"]),
+            np.full_like(lat_mesh, pos["lat"]),
+            lon_mesh,
+            lat_mesh,
+        )
+        dist = np.asarray(dist).ravel()
+        cells = np.flatnonzero(dist <= float(entity.entity["radius"]) * 1000)
+        step = entity.distances[1] - entity.distances[0] if entity.distances.size > 1 else 1.0
+        r_index = np.maximum((dist[cells] - entity.distances[0]) / step, 0.0)
+        theta_index = np.mod(np.asarray(bearing).ravel()[cells], 360.0) * entity.azimuths.size / 360
+        coords.append(
+            _PolarCoords(cells, r_index.astype(np.float32), theta_index.astype(np.float32))
+        )
+    return grid, tuple(coords)
+
+
 def _rasterize(
-    entity: StoredEntity,
-    polar: npt.NDArray[np.floating],
-    lon_mesh: Floats,
-    lat_mesh: Floats,
+    polar: npt.NDArray[np.floating], coords: _PolarCoords, shape: tuple[int, int]
 ) -> Floats32:
-    pos = entity.entity["position"]
-    origin_lon = np.full_like(lon_mesh, pos["lon"])
-    origin_lat = np.full_like(lat_mesh, pos["lat"])
-    bearing, _, dist = GEOD.inv(origin_lon, origin_lat, lon_mesh, lat_mesh)
-    bearing = np.mod(np.asarray(bearing), 360.0)
-    dist = np.asarray(dist)
-    step = entity.distances[1] - entity.distances[0] if entity.distances.size > 1 else 1.0
-    r_index = np.maximum((dist - entity.distances[0]) / step, 0.0)
-    theta_index = bearing * entity.azimuths.size / 360.0
     wrapped = np.concatenate([polar, polar[:, :1]], axis=1)  # 360° == 0°
-    values = _bilinear(wrapped, r_index, theta_index)
-    values[dist > float(entity.entity["radius"]) * 1000] = np.nan
-    return values.astype(np.float32)
+    values = np.full(shape[0] * shape[1], np.nan, dtype=np.float32)
+    rows = coords.r_index.astype(np.float64)
+    cols = coords.theta_index.astype(np.float64)
+    values[coords.cells] = _bilinear(wrapped, rows, cols)
+    return values.reshape(shape)
 
 
 def _combine(layers: list[Floats32], method: str) -> Floats32:

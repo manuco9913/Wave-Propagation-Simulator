@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiRequestError, fetchSlice, runEventsUrl, submitScenario, type RunRef } from "../api";
-import type { Slice } from "./slice";
+import { ApiRequestError, runEventsUrl, submitScenario, type RunRef } from "../api";
 
 /** SSE event payloads (contracts/api.md, Run Endpoints). */
 interface ProgressEvent {
   message: string;
   percent: number;
+}
+interface DoneEvent {
+  heights: number[];
 }
 interface ErrorEvent {
   error: string;
@@ -17,12 +19,11 @@ export type RunState =
   | { kind: "idle" }
   | { kind: "submitting" }
   | { kind: "running"; message: string; percent: number }
-  | { kind: "loading-slice" }
-  | { kind: "done"; heightM: number; slice: Slice }
+  | { kind: "done"; run: RunRef; heights: number[] }
   | { kind: "rejected"; message: string }
   | { kind: "failed"; message: string };
 
-/** Submits a scenario, follows its run over SSE, then loads the slice at `heightM`. */
+/** Submits a scenario and follows its run over SSE until it is done or fails. */
 export function useRun() {
   const [state, setState] = useState<RunState>({ kind: "idle" });
   const source = useRef<EventSource | null>(null);
@@ -34,7 +35,7 @@ export function useRun() {
   useEffect(() => stop, [stop]);
 
   const submit = useCallback(
-    async (scenario: unknown, heightM: number) => {
+    async (scenario: unknown) => {
       stop();
       setState({ kind: "submitting" });
       let run: RunRef;
@@ -53,13 +54,9 @@ export function useRun() {
       };
       events.addEventListener("status", onProgress);
       events.addEventListener("progress", onProgress);
-      events.addEventListener("done", () => {
+      events.addEventListener("done", (e) => {
         stop();
-        setState({ kind: "loading-slice" });
-        fetchSlice(run, heightM).then(
-          (slice) => setState({ kind: "done", heightM, slice }),
-          (err: unknown) => setState({ kind: "failed", message: errorMessage(err) }),
-        );
+        setState({ kind: "done", run, heights: parsePayload<DoneEvent>(e)?.heights ?? [] });
       });
       events.addEventListener("error", (e) => {
         // Our `error` event carries data; a bare Event is the connection dropping, which

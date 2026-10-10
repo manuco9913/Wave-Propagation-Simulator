@@ -101,7 +101,7 @@ def test_submitted_run_streams_progress_then_serves_its_slices(
 
     names = [name for name, _ in events]
     assert names[0] == "status"
-    assert names[-1] == "done"
+    assert events[-1] == ("done", {"heights": [0, 10, 20]})
     # the stream may open after the terrain phase; it must see the engine work and finish
     phases = [data["phase"] for name, data in events if name == "progress"]
     assert {"engine", "finalizing"} <= set(phases)

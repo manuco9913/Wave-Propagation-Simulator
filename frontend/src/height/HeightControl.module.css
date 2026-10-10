@@ -1,0 +1,41 @@
+.panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.label {
+  color: var(--color-accent);
+  text-transform: uppercase;
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--color-accent);
+}
+
+.exact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.input {
+  width: 7ch;
+  padding: var(--space-xs);
+  font: inherit;
+  background: var(--color-bg);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.unit {
+  color: var(--color-text-muted);
+}

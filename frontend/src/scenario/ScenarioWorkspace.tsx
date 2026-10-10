@@ -24,22 +24,32 @@ type Props = {
   onSubmit: (scenario: FieldValues) => void;
   /** The current run's slice, drawn on the map. */
   heatmap: Slice | null;
+  /** Floats over the bottom of the map (e.g. the height control); null for none. */
+  mapOverlay: React.ReactNode;
 };
 
 /** Scenario sidebar plus map; each entity's marker and coordinate fields stay in sync. */
-export function ScenarioWorkspace({ schemas, onSubmit, heatmap }: Props) {
+export function ScenarioWorkspace({ schemas, onSubmit, heatmap, mapOverlay }: Props) {
   if (!schemas) {
     return (
       <Layout
         sidebar={<h2 className={styles.title}>Scenario</h2>}
         map={<MapView entities={[]} activeIndex={0} onEntityMove={() => {}} heatmap={null} />}
+        overlay={null}
       />
     );
   }
-  return <LoadedWorkspace schemas={schemas} onSubmit={onSubmit} heatmap={heatmap} />;
+  return (
+    <LoadedWorkspace
+      schemas={schemas}
+      onSubmit={onSubmit}
+      heatmap={heatmap}
+      mapOverlay={mapOverlay}
+    />
+  );
 }
 
-function LoadedWorkspace({ schemas, onSubmit, heatmap }: Props & { schemas: Schemas }) {
+function LoadedWorkspace({ schemas, onSubmit, heatmap, mapOverlay }: Props & { schemas: Schemas }) {
   const listSchema = schemas.scenario.properties?.[ENTITIES];
   const minEntities = Math.max(listSchema?.minItems ?? 1, 1);
   const maxEntities = listSchema?.maxItems ?? Infinity;
@@ -168,6 +178,7 @@ function LoadedWorkspace({ schemas, onSubmit, heatmap }: Props & { schemas: Sche
           heatmap={heatmap}
         />
       }
+      overlay={mapOverlay}
     />
   );
 }
@@ -180,11 +191,18 @@ function EntityLabel({ index }: { index: number }) {
   ) : null;
 }
 
-function Layout({ sidebar, map }: { sidebar: React.ReactNode; map: React.ReactNode }) {
+function Layout(props: {
+  sidebar: React.ReactNode;
+  map: React.ReactNode;
+  overlay: React.ReactNode;
+}) {
   return (
     <div className={styles.body}>
-      <aside className={styles.sidebar}>{sidebar}</aside>
-      <main className={styles.map}>{map}</main>
+      <aside className={styles.sidebar}>{props.sidebar}</aside>
+      <main className={styles.map}>
+        {props.map}
+        {props.overlay && <div className={styles.overlay}>{props.overlay}</div>}
+      </main>
     </div>
   );
 }

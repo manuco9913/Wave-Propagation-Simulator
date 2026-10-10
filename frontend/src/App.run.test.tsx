@@ -30,17 +30,17 @@ class FakeEventSource {
   }
 }
 
-function sliceBody(): ArrayBuffer {
+function sliceBody(dbm = -70): ArrayBuffer {
   const buf = new ArrayBuffer(56 + 4);
   const view = new DataView(buf);
   [0x57, 0x50, 0x53, 0x31].forEach((b, i) => view.setUint8(i, b));
   view.setUint16(4, 1, true);
   view.setUint32(6, 1, true);
   view.setUint32(10, 1, true);
-  view.setFloat32(14, -70, true);
-  view.setFloat32(18, -70, true);
+  view.setFloat32(14, dbm, true);
+  view.setFloat32(18, dbm, true);
   [35, 32, 35.1, 32.1].forEach((v, i) => view.setFloat64(22 + i * 8, v, true));
-  view.setFloat32(56, -70, true);
+  view.setFloat32(56, dbm, true);
   return buf;
 }
 
@@ -98,7 +98,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("submit -> live progress over SSE -> the first height's slice is fetched", async () => {
+test("submit -> live progress over SSE -> the lowest height's slice is shown", async () => {
   const base = "/api/scenarios/s1/runs/r1";
   const fetchMock = serve({
     ...schemaRoutes,
@@ -120,9 +120,9 @@ test("submit -> live progress over SSE -> the first height's slice is fetched", 
   act(() => sse.emit("progress", { phase: "engine", percent: 52.5, message: "Engine: 50%" }));
   expect(screen.getByTestId("run-status")).toHaveTextContent("Engine: 50% · 53%");
 
-  act(() => sse.emit("done", {}));
+  act(() => sse.emit("done", { heights: [0] }));
 
-  await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("0 m"));
+  await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("0 m · -70"));
   expect(sse.closed).toBe(true);
   expect(fetchMock.mock.calls.map(([url]) => url)).toContain(`${base}/slices/0`);
   expect(screen.getByTestId("run-status")).toHaveTextContent("-70 … -70 dBm");
@@ -168,4 +168,58 @@ test("a scenario the server rejects shows the server's field errors", async () =
     ),
   );
   expect(FakeEventSource.last).toBeNull();
+});
+
+const HEIGHTS = [0, 10, 20, 30, 40, 50];
+
+/** Serves every height of run s1/r1, each with its own dBm value (-height - 50). */
+async function finishedRun() {
+  const base = "/api/scenarios/s1/runs/r1";
+  const slices = Object.fromEntries(
+    HEIGHTS.map((h) => [`${base}/slices/${h}`, () => new Response(sliceBody(-h - 50))]),
+  );
+  const fetchMock = serve({
+    ...schemaRoutes,
+    "/api/scenarios": json({ scenario_id: "s1", run_id: "r1" }, 201),
+    ...slices,
+  });
+  render(<App />);
+  await fillAndSubmit();
+  await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+  act(() => FakeEventSource.last!.emit("done", { heights: HEIGHTS }));
+  await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("0 m · -50"));
+  const sliceUrls = () =>
+    fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes("/slices/"));
+  return { base, sliceUrls };
+}
+
+test("after a run, the levels either side of the shown height are prefetched", async () => {
+  const { base, sliceUrls } = await finishedRun();
+
+  expect(sliceUrls()).toEqual([`${base}/slices/0`, `${base}/slices/10`, `${base}/slices/20`]);
+});
+
+test("moving the slider to a prefetched level shows it at once and prefetches the next", async () => {
+  const { base, sliceUrls } = await finishedRun();
+  await waitFor(() => expect(sliceUrls()).toHaveLength(3));
+  await act(async () => {}); // let the prefetched responses land
+
+  fireEvent.change(screen.getByLabelText("Height level"), { target: { value: "1" } });
+
+  // no waitFor: an already-prefetched level is on screen in the same render
+  expect(screen.getByTestId("run-status")).toHaveTextContent("10 m · -60");
+  expect(screen.getByLabelText("Height")).toHaveValue(10);
+  expect(sliceUrls()).toContain(`${base}/slices/30`);
+});
+
+test("typing a height jumps to that level, snapping to the nearest one", async () => {
+  await finishedRun();
+  const input = screen.getByLabelText("Height");
+
+  fireEvent.change(input, { target: { value: "37" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+
+  await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("40 m · -90"));
+  expect(screen.getByLabelText("Height level")).toHaveValue("4");
+  expect(input).toHaveValue(40);
 });

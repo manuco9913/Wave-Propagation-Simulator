@@ -160,9 +160,9 @@ that connects late or reconnects is never stuck), then forwards live events.
 { "phase": "terrain | engine | finalizing", "message": "string", "percent": 0–100 }
 ```
 
-`done`
+`done` — the heights (m, lowest first) the run has slices for; the slice endpoint accepts these
 ```json
-{}
+{ "heights": [0, 10, 20] }
 ```
 
 `error`
