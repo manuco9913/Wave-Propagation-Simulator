@@ -109,7 +109,7 @@ See `frontend-plan.md` for component structure, form rendering, and color scale 
 | Transport compression    | HTTP gzip (server middleware) — ~30–50% size reduction on propagation data        |
 | Rendering                | Custom Deck.gl R32F texture from day one; no BitmapLayer phase                    |
 | Polar → Cartesian        | `scipy.ndimage.map_coordinates(order=1)` — bilinear, no overshoot                 |
-| Coordinate arrays        | Pre-computed per entity after preprocessing, cached in memory for active scenario |
+| Coordinate arrays        | Computed on a run's first slice request, cached in memory for the active run; not stored |
 | Rasterization timing     | On-the-fly per request, parallelized over entities via `ProcessPoolExecutor`      |
 | Multi-entity combination | Element-wise max (default), applied server-side before serving                    |
 
@@ -148,10 +148,9 @@ and its result. There is no separate "job" concept — the queue holds runs.
 - User can **explicitly save** a run with a name → permanently stored, never auto-deleted
 - Named saves allow comparison across parameter variations
 - **No automatic retry** of a failed run.
-- **Per-run parameter store**: everything slice-time processing needs — the scenario snapshot the
-  run was computed from, entity parameters, azimuths, distances, terrain profiles, rasterization
-  coordinate arrays — is saved in a **separate store per run**, not in the main PostgreSQL
-  database. A slice request reads what it needs from the run's store. (Format: TBD-6.)
+- **Per-run store**: the scenario snapshot, entity parameters, angles, distances and terrain are
+  saved in a **separate HDF5 file per run** (plus MATLAB's output files in the same folder), not
+  in PostgreSQL. A slice request reads what it needs from it. See *Per-Run Store*.
 - How re-running works, and which changes need a recompute: TBD-2.
 
 ---
@@ -185,10 +184,12 @@ Runs **in the worker**, after the run is claimed and before the engine is invoke
    [A × D] in **metres above sea level**; each ray's terrain row has the same length as
    `distances`. Copernicus heights are already above sea level (EGM2008), so no datum conversion.
    Handed to the engine with every other parameter — see *Engine Interface*.
-4. **Pre-compute coordinate arrays** — for each entity, compute `r_coords` + `theta_coords` float32 arrays
-   of shape `[W_grid × H_grid]` mapping each Cartesian output cell to polar coordinates in entity frame.
-   Invariant across height levels.
-5. Save azimuths, distances, terrain profiles and coordinate arrays to the run's parameter store.
+4. Save the scenario snapshot, entity parameters, azimuths, distances and terrain profiles to the
+   run's `params.h5` (see *Per-Run Store*).
+
+Coordinate arrays (`r_coords` + `theta_coords`, `[W_grid × H_grid]`, mapping each map cell to
+polar coordinates in the entity frame) are **not** computed here: the slice endpoint computes them
+on the first slice request and keeps them in memory.
 
 **Scale**: 0.1° step + 200 km radius at 100 m = 3,600 vectors × 2,000 steps = 7.2M terrain
 queries/entity; 10 entities → 72M. Measured on the Israel tiles (`terrain/README.md`): ~1.5 s per
@@ -203,8 +204,9 @@ The engine outputs `[Height × Distance × Angle]` per entity. Slice endpoint se
 On-the-fly at request time:
 
 1. Read polar slice `[D × A]` from HDF5 (h5py hyperslab)
-2. Read from the run's parameter store what the gain needs: terrain `[A × D]`, distances, entity
-   antenna height, beam width, tilt, height reference
+2. Read from the run's `params.h5` what the gain needs: terrain `[A × D]`, distances, entity
+   antenna height, ground elevation, beam width, tilt, height reference. Coordinate arrays come
+   from the in-memory cache (computed on the run's first slice request).
 3. **Apply vertical antenna gain** (cheap, per entity):
    - elevation angle from antenna to each `(distance, height)` point:
      `φ = atan2(point_altitude − antenna_altitude, distance)`, where
@@ -233,8 +235,8 @@ API process
 
 Worker process (single engine run at a time — the engine uses all CPU cores)
   → Claim run (PostgreSQL FOR UPDATE SKIP LOCKED) → running
-  → phase "terrain" (0–10 %): rays + terrain profiles per entity, coordinate arrays,
-    saved to the run's parameter store
+  → phase "terrain" (0–10 %): rays + terrain profiles per entity, saved to the run's
+    params.h5
   → phase "engine" (10–95 %): invoke the engine (1–30 min for MATLAB)
   → phase "finalizing" (95–100 %): verify per-entity HDF5 outputs, write run metadata
   → done — or failed with {error code, message, retryable}; no automatic retry
@@ -252,6 +254,47 @@ Viewing
 **MATLAB location**: Configurable — same machine (child process) or separate compute
 server (REST wrapper). Abstracted behind one engine interface (fake engine first, MATLAB later);
 switching requires only a config change. Exact interface: TBD-3.
+
+---
+
+## Per-Run Store (#45)
+
+Everything a run produced, and everything slice-time processing needs, lives in **one folder per
+run**. PostgreSQL keeps only the small, queryable state.
+
+```
+runs/<run_id>/
+  params.h5       written once by the worker during the "terrain" phase, then read-only
+    /             attrs: store_version, scenario_id, run_id, created_at,
+                         scenario (the exact submitted scenario JSON — the run's snapshot)
+    /heights      [H] m
+    /grid         attrs: west, south, east, north, width, height, cell_size_m
+    /entities/<n> attrs: every entity field + ground_elevation
+                  datasets: azimuths [A], distances [D], terrain [A × D] float32,
+                            frequency [A] / power [A] when they came from a per-angle file
+  entity_<n>.h5   written by MATLAB (see Engine Interface): received power + /complete flags
+```
+
+| Decision | Choice |
+|---|---|
+| Technology | **One HDF5 file per run** (`params.h5`) — mostly large numeric arrays; same format and library as the engine output. This is the "separate database per run". |
+| Scope | **Per run**, never per scenario: a run's snapshot must not change when the scenario is edited later. Sharing data between runs is #50's job. |
+| PostgreSQL holds | scenarios (current config), runs (id, scenario, status, phase, percent, message, error, saved name, timestamps, folder path). **No arrays.** |
+| Coordinate arrays (polar → map grid) | **Not stored.** Computed on the first slice request for a run and kept in memory for the active run (~128 MB per entity at a 4000 × 4000 grid). |
+| Self-contained | The folder alone fully describes the result: it can be copied to another machine and viewed there. |
+| Writing | Worker writes `params.h5` under a temporary name and renames it when complete, so a crash never leaves a half-written store that looks valid. |
+| Save | Nothing moves; the run row is marked saved → never deleted automatically. |
+| Discard | Delete the folder and the run row. |
+| Failed / cancelled run | **Folder deleted immediately** (may change when #50 designs reuse). |
+
+**Slice request** reads from the store: scenario snapshot (height reference, combination
+method), per-entity antenna parameters, ground elevation, distances and terrain (for the gain),
+plus one height chunk from each `entity_<n>.h5`.
+
+**Known risk.** The gain needs each entity's whole terrain array on every slider move: ~290 MB
+for 10 entities at the 100 m step (fine from memory/OS cache) but **~2.9 GB at the 10 m step**.
+Measure when #31/#33 exist; options then include caching the active run's terrain in memory or
+limiting the 10 m step to smaller radii.
 
 ---
 
@@ -383,7 +426,7 @@ agent implements it.
 | TBD-3 (#44) | **Engine interface** | **Signed off** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open only: MATLAB-developer questions Q-M2, Q-M5–Q-M8 (fake engine uses defaults). |
 | TBD-4 (#50) | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
 | TBD-5 (#51) | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |
-| TBD-6 (#45) | **Per-run parameter store format** | Decided: parameters and arrays needed at slice time live in a separate store per run. Open: technology (e.g. one HDF5 or SQLite file per run), layout, lifecycle on save/discard. |
+| TBD-6 (#45) | **Per-run parameter store format** | **Decided** — see *Per-Run Store*: one HDF5 file per run, per run (not per scenario), coordinate arrays computed on demand, failed/cancelled folders deleted. |
 | TBD-7 (#46) | **Per-angle frequency/power file** | Decided: a table "at entity angle *x*, value *y*", uploaded via `POST /api/files`. Open: file format/columns, whether angles are relative to `azimuth` or true north, interpolation between angles, required coverage of 0–360°. |
 | TBD-8 (#47) | **Vertical gain formula** | 3GPP TR 38.901 vertical pattern used as a placeholder — check with the domain expert. Also confirm `antenna_height` is above ground. |
 | TBD-9 (#48) | **Database migrations** | How table changes reach an existing database as the app evolves. Proposal: numbered plain-SQL files (`001_create_tables.sql`, `002_…`) applied in order by a small script that records what's applied; vs a library such as Alembic. |
