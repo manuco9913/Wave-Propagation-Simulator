@@ -44,8 +44,8 @@ researchers, telecom.
 | Run queue            | PostgreSQL `FOR UPDATE SKIP LOCKED`                 |
 | Run notifications    | SSE — FastAPI `StreamingResponse` + async generator; pg `NOTIFY` + status snapshot on connect |
 | Request validation   | `jsonschema` directly against `contracts/*.schema.json` |
-| MATLAB invocation    | `asyncio.create_subprocess_exec` (subprocess)       |
-| MATLAB data exchange | HDF5 files (input and output)                       |
+| MATLAB invocation    | Callable function with parameters, one call per entity, inside a killable child process (see *Engine Interface*) |
+| MATLAB data exchange | Input: function arguments. Output: HDF5 written by MATLAB |
 | Entity parallelism   | `ProcessPoolExecutor` over entities                 |
 | Container base image | `ghcr.io/osgeo/gdal:ubuntu-small-latest`            |
 
@@ -55,14 +55,14 @@ researchers, telecom.
 
 | Concern             | Decision                                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Invocation method   | Subprocess only — MATLAB Engine API incompatible with MCR                                                    |
-| Input data          | Per entity: `distances` [D] m, `terrain` [A×D] m above sea level (same length per ray). File format: TBD-3 |
-| Output format       | HDF5, `ChunkSize=[1, D, A]`, float32                                                                         |
+| Invocation method   | Callable function with parameters, one call per entity, run inside a killable child process (mechanism: Q-M6). MATLAB Engine API itself is incompatible with MCR |
+| Input data          | Every scenario + entity parameter, plus `heights` [H], `azimuths` [A], `distances` [D] m, `terrain` [A×D] m above sea level — see *Engine Interface* |
+| Output format       | Received power (dBm) `[H×D×A]`, written by MATLAB to HDF5, `ChunkSize=[1, D, A]`, float32; MATLAB returns success/failure |
 | Output dataset path | `/propagation`; root attributes: `entity_id`, `scenario_id`, `height_min_m`, `height_max_m`, `height_step_m` |
-| Wrapper ownership   | Owned — wrapper controls HDF5 write with correct chunking                                                    |
-| Write pattern       | Wrapper pre-creates file → cores write temp partial files → wrapper assembles via hyperslab writes           |
+| HDF5 writer         | MATLAB writes the output file (path given by the worker), with the chunking above                            |
+| Write pattern       | Per height: write the slice, then set `/complete[h]` (see *Engine Interface*)                                |
 | MCR licensing       | Free, no license server, air-gapped-capable                                                                  |
-| Engine abstraction  | One engine interface: fake engine, local MATLAB subprocess, later remote REST (TBD-3)                        |
+| Engine abstraction  | One engine interface: fake engine, local MATLAB call, later remote REST (see *Engine Interface*)                        |
 | Antenna gain        | Not computed by the engine — applied by the backend per slice request                                        |
 
 
@@ -184,7 +184,7 @@ Runs **in the worker**, after the run is claimed and before the engine is invoke
 3. **Engine input** — per entity: `distances` [D] in **metres** (shared by all rays) and `terrain`
    [A × D] in **metres above sea level**; each ray's terrain row has the same length as
    `distances`. Copernicus heights are already above sea level (EGM2008), so no datum conversion.
-   How these are handed to the engine (file format, call granularity): TBD-3.
+   Handed to the engine with every other parameter — see *Engine Interface*.
 4. **Pre-compute coordinate arrays** — for each entity, compute `r_coords` + `theta_coords` float32 arrays
    of shape `[W_grid × H_grid]` mapping each Cartesian output cell to polar coordinates in entity frame.
    Invariant across height levels.
@@ -255,6 +255,122 @@ switching requires only a config change. Exact interface: TBD-3.
 
 ---
 
+## Engine Interface (#44 — draft, pending sign-off)
+
+One interface, implemented by the fake engine (first) and the MATLAB engine (#37). The engine
+knows nothing about the database, SSE or HTTP — the worker translates.
+
+```
+Worker                                    MATLAB function (fake engine: same contract)
+calls function(all params) per entity ──▶ computes received power [height × distance × angle]
+                                          writes it to an HDF5 file
+                                    ◀──── returns success | failure
+reads the slices it needs from HDF5 itself (any time later, e.g. per slider move)
+```
+
+Decided:
+- **Every parameter goes in** (below).
+- **One call per entity.** A scenario with N entities means N calls, run one after another.
+- **The input is a function call with parameters**, not an input file.
+- **The output is a 3D matrix of received power** in dBm, i.e. transmit power minus path loss,
+  shape `[H × D × A]`.
+- **MATLAB writes the matrix to HDF5 and returns success or failure.** The backend never gets the
+  matrix through the call; it reads the slices it needs from the file itself.
+
+> ⚠️ Departs from `research/matlab-mcr/research.md` ("subprocess only", "HDF5 input file").
+> The research ruled out the MATLAB *Engine API* because it
+> doesn't run on the free MCR. A callable function is still possible on MCR via a package built
+> with MATLAB Compiler SDK (e.g. a Python package). Q-M6 confirms which mechanism.
+
+### Inputs — every parameter goes to the engine
+
+Nothing is filtered out: the engine receives every scenario and entity parameter, plus the arrays
+the worker derives. The engine uses what it needs; new physics (e.g. TBD-1) never needs an
+interface change.
+
+**Scenario parameters** (all fields of `scenario.schema.json`):
+
+| Field | Unit | Note |
+|---|---|---|
+| scenario id, run id, name | — | for logging and file naming |
+| `heights` | m | **list of heights** `[H]`, expanded from `height_range` + `height_step` |
+| `height_reference` | `ground` \| `sea_level` | what `heights` are measured from |
+| `angular_resolution` | ° | |
+| `distance_step` | m | |
+| `grid_cell_size` | m | |
+| `terrain_enabled` | bool | |
+| `combination_method` | `max` \| `mean` \| `sum` | |
+
+**Per entity** (all fields of `entity.schema.json` + derived arrays):
+
+| Field | Unit | Note |
+|---|---|---|
+| index, `label` | — | |
+| `position` | lat/lon ° (WGS84) | |
+| `ground_elevation` | m above sea level | terrain at the antenna site (derived) |
+| `frequency` | MHz | scalar, or per-ray array `[A]` resolved from the uploaded per-angle file |
+| `power` | dBm | scalar, or per-ray array `[A]` resolved from the uploaded per-angle file |
+| `azimuth` | ° | |
+| `beam_width` | ° | vertical opening (may be absent = isotropic) |
+| `tilt` | ° | |
+| `antenna_height` | m | |
+| `radius` | km | |
+| `azimuths` | ° | **list of angles** `[A]` (derived: 0 … 360 by `angular_resolution`) |
+| `distances` | m | **list of steps** `[D]` (derived: `distance_step` … `radius`), shared by all rays |
+| `terrain` | m above sea level | `[A × D]` — one height per step per ray; all 0 when terrain disabled |
+
+Each call receives the scenario parameters plus **one** entity's parameters and arrays, as
+function arguments. Large arrays (`terrain` `[A × D]`) are passed as numeric arrays. The call also
+receives the path of the HDF5 file to write.
+
+### Output
+
+Written **by MATLAB**, one HDF5 file per entity (path given by the worker):
+
+- `/propagation` `[H × D × A]` float32 — **received power, dBm**; chunk `[1, D, A]` (one height
+  per chunk) so the backend reads one height slice with one chunk read; pre-filled with NaN.
+- `/complete` bool `[H]` — set for a height only after that height is fully written. Cancel
+  (#51) and reuse (#50) rely on it.
+
+Return value: success, or failure with an error code and message.
+The backend later reads slices directly from these files (see *Polar → Cartesian Rasterization*).
+
+### Progress, cancel, errors
+
+- **Progress**: per entity call, plus within a call by counting the heights already flagged in
+  `/complete` (or a small progress file, if reading HDF5 while MATLAB writes proves unsafe —
+  Q-M7). Worker maps it into the 10–95 % band.
+- **Cancel**: the worker makes each MATLAB call inside a dedicated child process, so cancel =
+  kill that process group (incl. parallel-pool workers) — a function call can't be interrupted
+  otherwise. Fake engine: cooperative stop. Completed heights stay flagged in `/complete`.
+- **Errors**: `invalid_input` (not retryable), `engine_crash` (retryable), `timeout` (retryable),
+  `out_of_disk` (not retryable), each with a message and the last ~50 lines of the engine log.
+- **Timeout**: configurable, default 40 min per engine call.
+- **Concurrency**: one engine call at a time per machine (MATLAB uses all cores).
+
+### Fake engine
+
+Deterministic, believable output from the inputs (simple distance/frequency loss with terrain
+shadowing), so tests can assert exact values; configurable delay so progress and cancel are
+visible; can be told to fail with a given error code so error paths are testable. Writes exactly
+the output format above.
+
+### Questions for the MATLAB developer (fake engine uses the default until answered)
+
+| # | Question | Default |
+|---|---|---|
+| Q-M2 | With `height_reference = sea_level`, does MATLAB take sea-level heights directly, or must we convert to above-ground per step? | MATLAB receives `heights` + `height_reference` and handles both |
+| Q-M5 | Is the model deterministic (same input → same output)? Needed by #50. | assume yes |
+| Q-M6 | How is the function made callable on the free MCR: MATLAB Compiler SDK package (e.g. Python), or a compiled executable taking arguments? Exact function signature and argument types. | Compiler SDK Python package |
+| Q-M7 | Can MATLAB write `/complete` per height as it goes, and is it safe for us to read it meanwhile (HDF5 single-writer/multi-reader)? Otherwise a separate progress file. | per-height `/complete`, read only after the call returns; progress via a small progress file |
+| Q-M8 | Startup cost of one call (MCR init) — with one call per entity, ×10 entities. | measure |
+
+Answered by the maintainer: Q-M1 (received power, dBm), Q-M3 (one call per entity), Q-M4 (no
+input file — function call with parameters). Also still open from *Deferred Decisions → MATLAB
+Interface*: MCR version, DSM vs bare-earth terrain.
+
+---
+
 ## TBD — Features To Design Separately
 
 Agreed to exist, but deliberately not designed yet. Each needs its own design pass (a HITL issue) before an
@@ -264,7 +380,7 @@ agent implements it.
 |---|---|---|
 | TBD-1 (#49) | **Beam width and recalculation** | Beam width is part of the recalculation logic (TBD-2): which level a beam-width change triggers, and whether beam width can be edited after a run. Must be reconciled with "gain applied at slice time". |
 | TBD-2 (#43) | **Re-run and recalculation levels** | Three levels of change: (1) needs a **recompute** by the engine; (2) needs the **slice re-fetched** and reprocessed server-side; (3) can be applied **in the browser** on the already-loaded slice. Classify every field into a level. Re-run endpoint, and how the "one unsaved run per scenario" conflict is enforced. |
-| TBD-3 (#44) | **Engine interface** | The exact interface both the fake and MATLAB engines implement: inputs, output files, progress reporting, cancellation, error reporting; how much work one engine call covers (whole run vs per entity — depends on MATLAB startup cost); file format handed to MATLAB (agree with the MATLAB developer). |
+| TBD-3 (#44) | **Engine interface** | **Drafted** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open: sign-off, and MATLAB-developer questions Q-M2, Q-M5–Q-M8. |
 | TBD-4 (#50) | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
 | TBD-5 (#51) | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |
 | TBD-6 (#45) | **Per-run parameter store format** | Decided: parameters and arrays needed at slice time live in a separate store per run. Open: technology (e.g. one HDF5 or SQLite file per run), layout, lifecycle on save/discard. |
