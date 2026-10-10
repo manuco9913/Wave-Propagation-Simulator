@@ -225,7 +225,8 @@ confirms "save changes". Settings only; no derived data is ever stored.
 
 ### `POST /api/scenarios/{scenario_id}/runs/{run_id}/save`
 
-Permanently save a run under a user-provided name.
+Permanently save a run under a user-provided name. Moves the run's output from temporary to
+permanent storage; unsaved runs are discarded when the user declines to save.
 
 **Request body**
 ```json

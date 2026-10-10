@@ -276,12 +276,18 @@ classification:
 - **Settings are stored only on confirmation.** A run has optional *view settings* (slice- and
   view-level choices, small JSON in its PostgreSQL row). They are written only when the user
   confirms "save changes" (`PUT …/runs/{id}/view`); otherwise the run's snapshot values apply.
+- **Any settings can be run without saving them first.** Every run writes its output to a
+  **temporary** folder (see *Per-Run Store*). If the user saves it, the folder is **moved from
+  temporary to permanent**; if the user doesn't save it, it is **discarded** (when they answer
+  "don't save", discard it, or confirm starting another run). A run whose save question was never
+  answered (e.g. tab closed) stays as the scenario's unsaved run and the question is asked again
+  when the scenario is reopened.
 - **Saved runs stay editable.** Opening a saved run and changing anything shows a clear banner
   — *"Modifying saved run '<name>'"*. When the user leaves it (opens another run or scenario,
   closes the tab) they are asked **save changes or not**:
   - slice/view changes only → save updates the run's view settings;
-  - an engine-level change produced a new run → save stores that new run under a name; the
-    original saved run's results are untouched.
+  - an engine-level change produced a new run → save moves that new run to permanent storage
+    **under a new name**; the original saved run is untouched.
 - **Server-enforced conflicts**: re-run while the current run is unsaved → `409
   unsaved_run_exists` (browser asks, retries with `discard_unsaved=true`); re-run while a run is
   queued/running → `409 run_in_progress` (cancel first, #51).
@@ -295,7 +301,10 @@ Everything a run produced, and everything slice-time processing needs, lives in 
 run**. PostgreSQL keeps only the small, queryable state.
 
 ```
-runs/<run_id>/
+runs/tmp/<run_id>/     every run starts here (unsaved)
+runs/saved/<run_id>/   moved here when the user saves it
+
+runs/{tmp|saved}/<run_id>/
   params.h5       written once by the worker during the "terrain" phase, then read-only
     /             attrs: store_version, scenario_id, run_id, created_at,
                          scenario (the exact submitted scenario JSON — the run's snapshot)
@@ -315,8 +324,9 @@ runs/<run_id>/
 | Coordinate arrays (polar → map grid) | **Not stored.** Computed on the first slice request for a run and kept in memory for the active run (~128 MB per entity at a 4000 × 4000 grid). |
 | Self-contained | The folder alone fully describes the result: it can be copied to another machine and viewed there. |
 | Writing | Worker writes `params.h5` under a temporary name and renames it when complete, so a crash never leaves a half-written store that looks valid. |
-| Save | Nothing moves; the run row is marked saved → never deleted automatically. |
-| Discard | Delete the folder and the run row. |
+| Save | Move the folder `runs/tmp/<id>` → `runs/saved/<id>` (a rename on the same disk — instant) and mark the run row saved under its name → never deleted automatically. |
+| Discard / not saved | Delete the temporary folder and the run row. |
+| Sweep | At worker startup, delete any `runs/tmp/` folder with no run row (left by a crash). |
 | Failed / cancelled run | **Folder deleted immediately** (may change when #50 designs reuse). |
 
 **Slice request** reads from the store: scenario snapshot (height reference, combination
