@@ -8,7 +8,9 @@
     "name",
     "height_range",
     "height_step",
+    "height_reference",
     "angular_resolution",
+    "distance_step",
     "grid_cell_size",
     "terrain_enabled",
     "combination_method",
@@ -39,6 +41,13 @@
       "minimum": 1,
       "x-unit": "m"
     },
+    "height_reference": {
+      "type": "string",
+      "title": "Height Reference",
+      "description": "Whether the height axis (height_range) is measured above ground or above sea level.",
+      "enum": ["ground", "sea_level"],
+      "default": "ground"
+    },
     "angular_resolution": {
       "type": "number",
       "title": "Angular Resolution",
@@ -46,6 +55,14 @@
       "maximum": 2.0,
       "default": 0.1,
       "x-unit": "°"
+    },
+    "distance_step": {
+      "type": "number",
+      "title": "Distance Step",
+      "description": "Spacing between samples along each ray, from the entity outward.",
+      "minimum": 10,
+      "default": 100,
+      "x-unit": "m"
     },
     "grid_cell_size": {
       "type": "number",
@@ -68,7 +85,7 @@
     "entities": {
       "type": "array",
       "title": "Entities",
-      "minItems": 2,
+      "minItems": 1,
       "maxItems": 10,
       "items": {
         "$ref": "entity"

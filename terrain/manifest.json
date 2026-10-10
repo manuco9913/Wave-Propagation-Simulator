@@ -1,0 +1,77 @@
+{
+  "dataset": "Copernicus DEM GLO-30 (DSM)",
+  "area_of_interest": {
+    "name": "Israel",
+    "bbox": {
+      "west": 34.0,
+      "south": 29.0,
+      "east": 36.0,
+      "north": 34.0
+    }
+  },
+  "license": "Copernicus DEM licence: free use incl. commercial, attribution required (see terrain/README.md)",
+  "attribution": "\u00a9 DLR e.V. 2010-2014 and \u00a9 Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved",
+  "retrieved": "2026-10-06",
+  "missing_tiles": [
+    {
+      "name": "Copernicus_DSM_COG_10_N33_00_E034_00_DEM",
+      "reason": "open sea; not published in the bucket"
+    }
+  ],
+  "tiles": [
+    {
+      "name": "Copernicus_DSM_COG_10_N29_00_E034_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N29_00_E034_00_DEM/Copernicus_DSM_COG_10_N29_00_E034_00_DEM.tif",
+      "bytes": 38970733,
+      "sha256": "41f2f184e881d447d01474fb118d65b7138e93a2ac7000f1c4fb92187aa88dfb"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N29_00_E035_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N29_00_E035_00_DEM/Copernicus_DSM_COG_10_N29_00_E035_00_DEM.tif",
+      "bytes": 41980738,
+      "sha256": "4841069acb5b240570a63d12eb69ebf39d779859be9e298711640df2b96b9c7a"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N30_00_E034_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N30_00_E034_00_DEM/Copernicus_DSM_COG_10_N30_00_E034_00_DEM.tif",
+      "bytes": 42796580,
+      "sha256": "92c8df881fcd5072ebf31174c51c3db355fc86e28423e1872ac0908a0f2b2117"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N30_00_E035_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N30_00_E035_00_DEM/Copernicus_DSM_COG_10_N30_00_E035_00_DEM.tif",
+      "bytes": 42876088,
+      "sha256": "424f6f068d8ae943c08789b19df7cb15db96e7a76649602ba3facc2c746a92da"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N31_00_E034_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N31_00_E034_00_DEM/Copernicus_DSM_COG_10_N31_00_E034_00_DEM.tif",
+      "bytes": 28960707,
+      "sha256": "d157903d3c8adb88598def6c1e40f938ecf7a366a598aa000fe45de250ea756a"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N31_00_E035_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N31_00_E035_00_DEM/Copernicus_DSM_COG_10_N31_00_E035_00_DEM.tif",
+      "bytes": 41402019,
+      "sha256": "29baca4a170117c090c2ab1f2a4ade53ed1dd085cdbbfaa005631049462221cf"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N32_00_E034_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N32_00_E034_00_DEM/Copernicus_DSM_COG_10_N32_00_E034_00_DEM.tif",
+      "bytes": 6011978,
+      "sha256": "da4d0a275b1a8336339ef406f5bed556d512025d7caeda4a1203c92af7c55616"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N32_00_E035_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N32_00_E035_00_DEM/Copernicus_DSM_COG_10_N32_00_E035_00_DEM.tif",
+      "bytes": 44324196,
+      "sha256": "5b088dc8b6d9fab50873ea6daf7459141b4ee2e52cdd23b73297adf6bf602d22"
+    },
+    {
+      "name": "Copernicus_DSM_COG_10_N33_00_E035_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N33_00_E035_00_DEM/Copernicus_DSM_COG_10_N33_00_E035_00_DEM.tif",
+      "bytes": 29293414,
+      "sha256": "5c354a55aa89f068d837d5cdbae342702b35c2735866ff7f16873b2fe0e85b37"
+    }
+  ]
+}

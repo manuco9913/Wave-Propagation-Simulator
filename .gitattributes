@@ -3,3 +3,4 @@
 *.sh             text eol=lf
 ralph/Dockerfile text eol=lf
 .githooks/*      text eol=lf
+*.tif            binary

@@ -41,7 +41,9 @@ Submit a new scenario for computation.
   "name": "string",
   "height_range": { "min": 0, "max": 1000 },
   "height_step": 10,
+  "height_reference": "ground",
   "angular_resolution": 0.1,
+  "distance_step": 100,
   "grid_cell_size": 100,
   "terrain_enabled": true,
   "combination_method": "max",
@@ -49,51 +51,75 @@ Submit a new scenario for computation.
 }
 ```
 
+Validates the scenario, stores it, and queues a **run** (one computation of the scenario).
+Returns immediately; terrain preprocessing and the engine run in the worker.
+
 **Response `201`**
 ```json
 {
   "scenario_id": "uuid",
-  "job_id": "uuid"
+  "run_id": "uuid"
 }
 ```
 
-**Response `422`** — validation error
-```json
-{
-  "detail": [
-    { "field": "string", "message": "string" }
-  ]
-}
-```
+**Response `422`** — validation error (schema, or checks the schema can't express: height range
+order, terrain coverage, unknown `file_id`, estimated output size vs free disk). See *Error format*.
 
 ---
 
-## Job Endpoints
+## File Endpoints
 
-### `GET /api/scenarios/{scenario_id}/jobs/{job_id}/events`
+### `POST /api/files`
 
-SSE stream for job progress. Client opens with `EventSource`. Connection closes on `done` or `error` event.
+Upload a per-angle table for a `numeric-or-file` field (`frequency`, `power`).
+`multipart/form-data` with one `file` part. The server parses and validates it immediately and
+stores it by content hash, so the same file uploaded twice gets the same `file_id`.
+The entity field's string value is this `file_id`.
 
-**Event types:**
+File format (columns, angle reference, interpolation): **TBD** — see `system-plan.md`.
 
-`progress`
+**Response `201`**
 ```json
-{ "message": "string", "percent": 0–100 }
+{ "file_id": "sha256 hex", "rows": 360, "angle_min": 0, "angle_max": 359 }
 ```
 
-`done`
-```json
-{ "run_id": "uuid" }
-```
-
-`error`
-```json
-{ "message": "string" }
-```
+**Response `422`** — file could not be parsed. See *Error format*.
 
 ---
 
 ## Run Endpoints
+
+A run is one computation of a scenario: its status, progress, and result.
+
+### `GET /api/scenarios/{scenario_id}/runs/{run_id}/events`
+
+SSE stream for run progress. Client opens with `EventSource`. Connection closes on `done` or
+`error` event.
+
+On connect, the server first sends one `status` event with the run's current state (so a client
+that connects late or reconnects is never stuck), then forwards live events.
+
+**Event types:**
+
+`status` — sent once on connect
+```json
+{ "status": "queued | running | done | failed", "phase": "terrain | engine | finalizing | null", "percent": 0–100, "message": "string" }
+```
+
+`progress`
+```json
+{ "phase": "terrain | engine | finalizing", "message": "string", "percent": 0–100 }
+```
+
+`done`
+```json
+{}
+```
+
+`error`
+```json
+{ "error": "string (code)", "message": "string", "retryable": true }
+```
 
 ### `GET /api/scenarios/{scenario_id}/runs/{run_id}/slices/{height_m}`
 
@@ -159,9 +185,17 @@ Discard an unsaved run. Deletes the associated HDF5 file and metadata.
 
 ## Error format (all non-2xx responses)
 
+One shape for every error, including validation:
+
 ```json
 {
-  "error": "string",
-  "detail": "string | null"
+  "error": "string (machine-readable code, e.g. validation_failed, not_found)",
+  "message": "string (human-readable)",
+  "fields": [
+    { "field": "entities.0.radius", "message": "must be >= 0.1" }
+  ]
 }
 ```
+
+`fields` is present only for validation errors (`422`). `field` is the dotted path into the
+request body.

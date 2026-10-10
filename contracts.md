@@ -11,9 +11,8 @@ Files live in `/contracts/`. Backend serves them at runtime — no rebuild neede
 - `GET /api/schema/scenario`
 
 Frontend validates at runtime using **ajv 8** directly against the served JSON Schema (via `@hookform/resolvers/ajv`).
-Backend validates against the same JSON Schema files — language-agnostic by design:
-- Python: Pydantic models (manual, by convention)
-- C#: NJsonSchema
+Backend (Python) validates request bodies directly against the same JSON Schema files with the
+`jsonschema` library — no field definitions duplicated in backend code.
 
 ---
 
@@ -29,7 +28,7 @@ Backend validates against the same JSON Schema files — language-agnostic by de
 | `coordinate` | `type: object, properties: {lat, lon}` | Lat/lon inputs + map marker |
 | `range` | `type: object, properties: {min, max}` | Dual min/max input |
 | `matrix` | `type: string` | File upload + read-only preview |
-| `numeric-or-file` | `oneOf: [{type: number}, {type: string}]` | Inline value with toggle to file path |
+| `numeric-or-file` | `oneOf: [{type: number}, {type: string}]` | Inline value with toggle to file upload |
 | — | `type: object, properties: {...}` | Grouped section (bbox); each property renders with its own UI component; arbitrary nesting |
 
 ---
@@ -61,6 +60,8 @@ Top-level key is `and` or `or`. Each entry is `{ field, op, value }`.
 | `frequency` | numeric-or-file | x-unit: MHz |
 | `power` | numeric-or-file | x-unit: dBm |
 | `azimuth` | number | min: 0, max: 360, x-unit: ° |
+| `beam_width` | number | vertical half-power beamwidth; min: 1, max: 180, x-unit: °; optional (omitted = isotropic) |
+| `tilt` | number | min: −90, max: 90, default: 0, x-unit: ° (negative = downtilt) |
 | `antenna_height` | number | min: 0, x-unit: m |
 | `radius` | number | min: 0.1, x-unit: km |
 
@@ -71,17 +72,22 @@ Top-level key is `and` or `or`. Each entry is `{ field, op, value }`.
 | `name` | string | — |
 | `height_range` | range | x-unit: m |
 | `height_step` | number | min: 1, x-unit: m |
+| `height_reference` | enum | ground \| sea_level, default: ground |
 | `angular_resolution` | number | min: 0.01, max: 2.0, default: 0.1, x-unit: ° |
+| `distance_step` | number | min: 10, default: 100, x-unit: m |
 | `grid_cell_size` | number | default: 100, x-unit: m |
 | `terrain_enabled` | boolean | default: true |
 | `combination_method` | enum | max \| mean \| sum, default: max |
-| `entities` | array of entity | 2–10 items |
+| `entities` | array of entity | 1–10 items |
 
 ---
 
 ## File-sourced Fields
 
-When `numeric-or-file` or `matrix` fields use file mode:
-- File path is stored as a string reference.
-- Backend reads the file from the shared filesystem at job execution time.
-- No client-side upload or parsing.
+When a `numeric-or-file` field (`frequency`, `power`) uses file mode:
+- The browser uploads the file to `POST /api/files` (see `contracts/api.md`); the server parses
+  and validates it immediately, so errors show next to the field before submit.
+- The field's string value is the returned `file_id` (content hash). Stored files never change,
+  so a run always refers to exactly the table it was computed with.
+- The file is a per-angle table: at entity angle *x*, the value is *y*. Exact format is TBD
+  (see `system-plan.md`).
