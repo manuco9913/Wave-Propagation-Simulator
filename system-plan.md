@@ -44,6 +44,7 @@ researchers, telecom.
 | Run queue            | PostgreSQL `FOR UPDATE SKIP LOCKED`                 |
 | Run notifications    | SSE — FastAPI `StreamingResponse` + async generator; pg `NOTIFY` + status snapshot on connect |
 | Request validation   | `jsonschema` directly against `contracts/*.schema.json` |
+| DB migrations (#48)  | Numbered plain-SQL files (`001_create_tables.sql`, `002_…`), applied automatically at backend startup by a small runner that records applied files in `schema_migrations`. Applied files are never edited — fixes go in a new file. Each file runs in one transaction; a failure stops startup. A Postgres advisory lock ensures only one process applies them. |
 | MATLAB invocation    | Callable function with parameters, one call per entity, inside a killable child process (see *Engine Interface*) |
 | MATLAB data exchange | Input: function arguments. Output: HDF5 written by MATLAB |
 | Entity parallelism   | `ProcessPoolExecutor` over entities                 |
@@ -429,7 +430,7 @@ agent implements it.
 | TBD-6 (#45) | **Per-run parameter store format** | **Decided** — see *Per-Run Store*: one HDF5 file per run, per run (not per scenario), coordinate arrays computed on demand, failed/cancelled folders deleted. |
 | TBD-7 (#46) | **Per-angle frequency/power file** | Decided: a table "at entity angle *x*, value *y*", uploaded via `POST /api/files`. Open: file format/columns, whether angles are relative to `azimuth` or true north, interpolation between angles, required coverage of 0–360°. |
 | TBD-8 (#47) | **Vertical gain formula** | 3GPP TR 38.901 vertical pattern used as a placeholder — check with the domain expert. Also confirm `antenna_height` is above ground. |
-| TBD-9 (#48) | **Database migrations** | How table changes reach an existing database as the app evolves. Proposal: numbered plain-SQL files (`001_create_tables.sql`, `002_…`) applied in order by a small script that records what's applied; vs a library such as Alembic. |
+| TBD-9 (#48) | **Database migrations** | **Decided** — numbered plain-SQL files, applied automatically at backend startup (see Backend table). |
 
 ---
 
