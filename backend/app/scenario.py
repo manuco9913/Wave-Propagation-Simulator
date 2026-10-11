@@ -11,6 +11,7 @@ from jsonschema import Draft7Validator, ValidationError
 from referencing import Registry, Resource
 
 from app.h5 import Floats
+from app.terrain import Terrain, circle_box
 from app.types import JsonObject
 
 CONTRACTS_DIR = Path(__file__).resolve().parents[2] / "contracts"
@@ -41,8 +42,12 @@ def _iter_errors(validator: Draft7Validator, body: object) -> Iterator[Validatio
 _VALIDATOR = _validator()
 
 
-def validate_scenario(body: object) -> list[FieldError]:
-    """Every problem with a submitted scenario; empty when it can be queued."""
+def validate_scenario(body: object, terrain: Terrain) -> list[FieldError]:
+    """Every problem with a submitted scenario; empty when it can be queued.
+
+    With terrain enabled, every entity's circle must lie within the terrain data (a metadata
+    check: no pixels are read).
+    """
     errors = [
         FieldError(".".join(str(p) for p in e.absolute_path), e.message)
         for e in _iter_errors(_VALIDATOR, body)
@@ -59,6 +64,12 @@ def validate_scenario(body: object) -> list[FieldError]:
             if isinstance(entity[key], str):
                 # No file store yet (POST /api/files, #46), so no file_id can exist.
                 errors.append(FieldError(f"entities.{i}.{key}", "unknown file_id"))
+        if scenario["terrain_enabled"]:
+            pos = entity["position"]
+            box = circle_box(pos["lat"], pos["lon"], float(entity["radius"]) * 1000)
+            reason = terrain.uncovered(box)
+            if reason is not None:
+                errors.append(FieldError(f"entities.{i}.radius", f"no terrain: {reason}"))
     return errors
 
 

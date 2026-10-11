@@ -10,6 +10,7 @@ import numpy as np
 from app import scenario as sc
 from app.engine import Engine, EngineCall, EngineFailure
 from app.h5 import StoredEntity, StoredRun, read_complete, write_params
+from app.terrain import Terrain, TerrainCoverageError, terrain_profile
 from app.types import JsonObject
 
 
@@ -37,20 +38,33 @@ def run_pipeline(
     run_dir: Path,
     engine: Engine,
     report: ReportFn,
+    terrain: Terrain,
 ) -> EngineFailure | None:
-    """Runs one scenario into `run_dir` (params.h5 + entity_<n>.h5); returns the first failure."""
+    """Runs one scenario into `run_dir` (params.h5 + entity_<n>.h5); returns the first failure.
+
+    With `terrain_enabled` false (flat-ground mode) `terrain` is never read: every height is 0.
+    """
     run_dir.mkdir(parents=True, exist_ok=True)
     entities: list[JsonObject] = scenario["entities"]
     heights = sc.expand_heights(scenario)
 
     stored: list[StoredEntity] = []
     for index, entity in enumerate(entities):
-        report(_band(TERRAIN_BAND, index / len(entities), "terrain", f"Entity {index + 1}: rays"))
+        message = f"Entity {index + 1}: terrain profiles"
+        report(_band(TERRAIN_BAND, index / len(entities), "terrain", message))
         azimuths = sc.azimuths(scenario)
         distances = sc.distances(scenario, entity)
-        # Flat ground until the real elevation lookup lands (#35).
-        terrain = np.zeros((azimuths.size, distances.size))
-        stored.append(StoredEntity(entity, 0.0, azimuths, distances, terrain))
+        if not scenario["terrain_enabled"]:
+            ground, profile = 0.0, np.zeros((azimuths.size, distances.size))
+        else:
+            position = entity["position"]
+            try:
+                ground, profile = terrain_profile(
+                    terrain, position["lat"], position["lon"], azimuths, distances
+                )
+            except TerrainCoverageError as e:
+                return EngineFailure("invalid_input", f"entity {index + 1}: {e}", False)
+        stored.append(StoredEntity(entity, ground, azimuths, distances, profile))
     params = StoredRun(scenario_id, run_id, scenario, heights, stored)
     write_params(run_dir / "params.h5", params, datetime.now(UTC).isoformat())
 

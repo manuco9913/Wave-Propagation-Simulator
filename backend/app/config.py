@@ -2,7 +2,10 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_RUNS_DIR = Path(__file__).resolve().parents[1] / "runs"
+REPO = Path(__file__).resolve().parents[2]
+DEFAULT_RUNS_DIR = REPO / "backend" / "runs"
+TERRAIN_MANIFEST = REPO / "terrain" / "manifest.json"
+DEFAULT_TERRAIN_DIR = REPO / "terrain-cache"  # where terrain/fetch.py puts the tiles
 
 
 @dataclass(frozen=True)
@@ -10,6 +13,7 @@ class Settings:
     database_url: str  # PostgreSQL DSN
     runs_dir: Path  # runs/tmp/<run_id>/ holds each unsaved run (system-plan.md, Per-Run Store)
     fake_engine_delay_s: float  # spread over each entity's heights, so progress is visible
+    terrain_dir: Path = DEFAULT_TERRAIN_DIR  # tiles from terrain/manifest.json
 
     @staticmethod
     def from_env() -> "Settings":
@@ -21,4 +25,5 @@ class Settings:
             database_url=database_url,
             runs_dir=Path(os.environ.get("RUNS_DIR", DEFAULT_RUNS_DIR)),
             fake_engine_delay_s=float(os.environ.get("FAKE_ENGINE_DELAY_S", "2")),
+            terrain_dir=Path(os.environ.get("TERRAIN_DIR", DEFAULT_TERRAIN_DIR)),
         )

@@ -26,6 +26,7 @@ from asyncpg.pool import PoolConnectionProxy
 from app.engine import Engine
 from app.pipeline import Progress, run_pipeline
 from app.scenario import expand_heights
+from app.terrain import Terrain
 from app.types import JsonObject
 
 EVENTS_CHANNEL = "run_events"
@@ -379,9 +380,10 @@ class Worker:
     on it, so the lock disappears with the worker.
     """
 
-    def __init__(self, queue: RunQueue, engine: Engine) -> None:
+    def __init__(self, queue: RunQueue, engine: Engine, terrain: Terrain) -> None:
         self._queue = queue
         self._engine = engine
+        self._terrain = terrain
         self._conn: asyncpg.Connection | None = None
 
     async def connect(self, dsn: str) -> None:
@@ -472,6 +474,7 @@ class Worker:
                 self._queue.run_dir(run),
                 self._engine,
                 report,
+                self._terrain,
             )
         except Exception as exc:  # a pipeline bug must fail the run, not the worker
             error = {"error": "engine_crash", "message": str(exc), "retryable": True}

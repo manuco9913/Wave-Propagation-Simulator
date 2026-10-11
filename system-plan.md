@@ -192,6 +192,10 @@ Coordinate arrays (`r_coords` + `theta_coords`, `[W_grid × H_grid]`, mapping ea
 polar coordinates in the entity frame) are **not** computed here: the slice endpoint computes them
 on the first slice request and keeps them in memory.
 
+**Measured (#35)** on the Israel tiles, 4 cores: 10 entities × 0.1° × 100 m × 50 km radius
+(18M points) take ~15 s on the first run (tiles decoded into memory, kept for later runs) and
+~10 s after that. Nearest-pixel sampling.
+
 **Scale**: 0.1° step + 200 km radius at 100 m = 3,600 vectors × 2,000 steps = 7.2M terrain
 queries/entity; 10 entities → 72M. Measured on the Israel tiles (`terrain/README.md`): ~1.5 s per
 7.2M points after a one-off ~9 s tile load. **At the 10 m minimum step this is 10× more** (20,000

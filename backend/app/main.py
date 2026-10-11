@@ -8,12 +8,13 @@ import asyncpg
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.config import Settings
+from app.config import TERRAIN_MANIFEST, Settings
 from app.db import apply_migrations
 from app.engine import Engine, FakeEngine
 from app.runs import RunConflict, RunQueue, Worker
 from app.scenario import load_schema, validate_scenario
 from app.slices import SliceError, encode_slice, render_slice
+from app.terrain import RasterTerrain, Terrain
 from app.types import JsonObject
 
 
@@ -35,21 +36,27 @@ def conflict_response(e: RunConflict) -> JSONResponse:
     return JSONResponse(body, status_code=409)
 
 
-async def valid_scenario(request: Request) -> JsonObject | JSONResponse:
+async def valid_scenario(request: Request, terrain: Terrain) -> JsonObject | JSONResponse:
     """The request body as a scenario, or the 422 response saying why it isn't one."""
     try:
         body: object = await request.json()
     except ValueError:
         return error_response(422, "validation_failed", "body is not JSON", [])
-    errors = validate_scenario(body)
+    errors = validate_scenario(body, terrain)
     if errors or not isinstance(body, dict):
         fields: list[JsonObject] = [{"field": e.field, "message": e.message} for e in errors]
         return error_response(422, "validation_failed", "scenario is invalid", fields)
     return cast(JsonObject, body)
 
 
-def create_app(settings: Settings, engine: Engine | None = None) -> FastAPI:
-    """The API, plus one in-process worker. Migrations are applied before anything else."""
+def create_app(
+    settings: Settings, engine: Engine | None = None, terrain: Terrain | None = None
+) -> FastAPI:
+    """The API, plus one in-process worker. Migrations are applied before anything else.
+
+    `engine` and `terrain` default to the fake engine and the tiles terrain/fetch.py installed.
+    """
+    ground = terrain or RasterTerrain.from_manifest(TERRAIN_MANIFEST, settings.terrain_dir)
     queues: list[RunQueue] = []
 
     def queue() -> RunQueue:
@@ -61,7 +68,7 @@ def create_app(settings: Settings, engine: Engine | None = None) -> FastAPI:
         async with asyncpg.create_pool(settings.database_url, min_size=1, max_size=10) as pool:
             run_queue = RunQueue(pool, settings.runs_dir)
             await run_queue.start(settings.database_url)
-            worker = Worker(run_queue, engine or FakeEngine(settings.fake_engine_delay_s))
+            worker = Worker(run_queue, engine or FakeEngine(settings.fake_engine_delay_s), ground)
             await worker.connect(settings.database_url)
             await worker.sweep()  # before serving, so nobody sees an orphaned run as running
             queues.append(run_queue)
@@ -87,7 +94,7 @@ def create_app(settings: Settings, engine: Engine | None = None) -> FastAPI:
 
     @app.post("/api/scenarios", status_code=201, response_model=None)
     async def submit_scenario(request: Request) -> JsonObject | JSONResponse:
-        scenario = await valid_scenario(request)
+        scenario = await valid_scenario(request, ground)
         if isinstance(scenario, JSONResponse):
             return scenario
         run = await queue().submit(scenario)
@@ -106,7 +113,7 @@ def create_app(settings: Settings, engine: Engine | None = None) -> FastAPI:
     async def rerun_scenario(
         scenario_id: str, request: Request, discard_unsaved: bool = False
     ) -> JsonObject | JSONResponse:
-        scenario = await valid_scenario(request)
+        scenario = await valid_scenario(request, ground)
         if isinstance(scenario, JSONResponse):
             return scenario
         try:

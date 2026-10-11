@@ -25,6 +25,9 @@ type Props = {
 
 const RING_SOURCE = "entity-ring";
 const HEATMAP_LAYER = "heatmap";
+const TERRAIN_ATTRIBUTION =
+  "Terrain: © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under " +
+  "COPERNICUS by the European Union and ESA; all rights reserved";
 const TILES_URL = "pmtiles://" + new URL("map/sample.pmtiles", document.baseURI).href;
 
 let protocolRegistered = false;
@@ -106,7 +109,9 @@ export function MapView({ entities, activeIndex, onEntityMove, heatmap }: Props)
         style: baseStyle(),
         center: [12.5, 42],
         zoom: 4,
-        attributionControl: false,
+        // Required by the Copernicus DEM licence wherever results derived from it are shown
+        // (terrain/README.md).
+        attributionControl: { compact: true, customAttribution: TERRAIN_ATTRIBUTION },
       });
     } catch {
       return; // no WebGL (e.g. test environment)

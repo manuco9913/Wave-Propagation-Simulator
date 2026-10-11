@@ -13,8 +13,11 @@ pre-downloaded and read locally (no network at query time).
 | Size | ~317 MB total, 6–44 MB per tile (N32 E034 is mostly sea) |
 | Elevation range | −428 m (Dead Sea) to 2,811 m (Mt Hermon) |
 
-The AOI is a closed list in `manifest.json`. A scenario entity whose radius reaches outside it
-has no terrain. #35 should fail fast with a clear error, as recommended in the research.
+The AOI is a closed list in `manifest.json`. A terrain-enabled scenario whose entity circle
+reaches outside it is rejected with a 422 before it is queued (`backend/app/terrain.py`,
+`uncovered`). Unpublished sea tiles (`missing_tiles`) count as covered, at 0 m. The backend reads
+the tiles from `TERRAIN_DIR` (default `./terrain-cache`); a tile listed but not downloaded is
+reported in that 422 too.
 To widen the AOI, add tiles to the manifest (name, URL, size, SHA-256) and re-run the fetch.
 
 ## Getting the tiles

@@ -12,6 +12,7 @@ from app.db import apply_migrations
 from app.engine import FakeEngine
 from app.main import create_app
 from app.runs import RunQueue, Worker
+from app.terrain import RasterTerrain
 from app.types import JsonObject
 
 SCENARIO: JsonObject = {
@@ -46,7 +47,8 @@ async def test_two_concurrent_workers_never_claim_the_same_run(
     async with asyncpg.create_pool(database_url) as pool:
         queue = RunQueue(pool, tmp_path)
         submitted = {(await queue.submit(SCENARIO)).run_id for _ in range(30)}
-        workers = [Worker(queue, FakeEngine(0)), Worker(queue, FakeEngine(0))]
+        flat = RasterTerrain([], [])  # these runs never read terrain
+        workers = [Worker(queue, FakeEngine(0), flat), Worker(queue, FakeEngine(0), flat)]
         for worker in workers:
             await worker.connect(database_url)
 
