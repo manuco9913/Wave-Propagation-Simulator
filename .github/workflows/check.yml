@@ -33,3 +33,7 @@ jobs:
       - run: uv sync --locked
         working-directory: backend
       - run: pnpm run check
+      # End to end: real browser, real backend and database (frontend/e2e). The browser
+      # version follows @playwright/test in frontend/package.json.
+      - run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - run: pnpm run e2e

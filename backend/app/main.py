@@ -8,7 +8,7 @@ import asyncpg
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.config import TERRAIN_MANIFEST, Settings
+from app.config import Settings
 from app.db import apply_migrations
 from app.engine import Engine, FakeEngine
 from app.runs import RunConflict, RunQueue, Worker
@@ -56,7 +56,7 @@ def create_app(
 
     `engine` and `terrain` default to the fake engine and the tiles terrain/fetch.py installed.
     """
-    ground = terrain or RasterTerrain.from_manifest(TERRAIN_MANIFEST, settings.terrain_dir)
+    ground = terrain or RasterTerrain.from_manifest(settings.terrain_manifest, settings.terrain_dir)
     queues: list[RunQueue] = []
 
     def queue() -> RunQueue:

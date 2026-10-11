@@ -14,6 +14,7 @@ class Settings:
     runs_dir: Path  # runs/tmp/<run_id>/ holds each unsaved run (system-plan.md, Per-Run Store)
     fake_engine_delay_s: float  # spread over each entity's heights, so progress is visible
     terrain_dir: Path = DEFAULT_TERRAIN_DIR  # tiles from terrain/manifest.json
+    terrain_manifest: Path = TERRAIN_MANIFEST  # which tiles exist (terrain/README.md)
 
     @staticmethod
     def from_env() -> "Settings":
@@ -26,4 +27,5 @@ class Settings:
             runs_dir=Path(os.environ.get("RUNS_DIR", DEFAULT_RUNS_DIR)),
             fake_engine_delay_s=float(os.environ.get("FAKE_ENGINE_DELAY_S", "2")),
             terrain_dir=Path(os.environ.get("TERRAIN_DIR", DEFAULT_TERRAIN_DIR)),
+            terrain_manifest=Path(os.environ.get("TERRAIN_MANIFEST", TERRAIN_MANIFEST)),
         )

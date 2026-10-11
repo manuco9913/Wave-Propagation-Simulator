@@ -13,7 +13,8 @@
     "typecheck": "pnpm --dir frontend typecheck && pyright -p backend",
     "test": "pnpm --dir frontend test && cd backend && uv run pytest -q",
     "check:fast": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
-    "check": "pnpm run check:fast && pnpm run test"
+    "check": "pnpm run check:fast && pnpm run test",
+    "e2e": "pnpm --dir frontend e2e"
   },
   "devDependencies": {
     "lint-staged": "^17.6.0",
