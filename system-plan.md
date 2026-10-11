@@ -77,7 +77,7 @@ researchers, telecom.
 | Matrix chunking          | `ChunkSize = [1, D, A]` (one chunk = one height slice)                  |
 | Matrix dtype             | float32 (single precision)                                              |
 | Matrix layout            | Per-entity files; combined output computed on-the-fly at serve time     |
-| Terrain data             | Copernicus GLO-30 (NASADEM as fallback)                                 |
+| Terrain data             | Copernicus GLO-30 (NASADEM as fallback). AOI: Israel, 9 tiles (#36, `terrain/README.md`); entities reaching outside it are rejected |
 | Terrain tile format      | Cloud-Optimized GeoTIFF (COG), 1°×1° tiles                              |
 | Terrain access pattern   | GDAL VRT mosaic over pre-downloaded tiles, rebuilt at container startup |
 | Typical entity file size | ~86 GB (3,000 slices × 2,000 distance × 3,600 angles × 4 bytes)         |
@@ -449,10 +449,11 @@ the output format above.
 | Q-M6 | How is the function made callable on the free MCR: MATLAB Compiler SDK package (e.g. Python), or a compiled executable taking arguments? Exact function signature and argument types. | Compiler SDK Python package |
 | Q-M7 | Can MATLAB write `/complete` per height as it goes, and is it safe for us to read it meanwhile (HDF5 single-writer/multi-reader)? Otherwise a separate progress file. | per-height `/complete`, read only after the call returns; progress via a small progress file |
 | Q-M8 | Startup cost of one call (MCR init) — with one call per entity, ×10 entities. | measure |
+| Q-M9 | Terrain surface: does the model expect a DSM (top of canopy and buildings) or bare earth (DTM)? GLO-30 is a DSM; a DTM would need another source (e.g. FABDEM, non-commercial licence). | DSM (GLO-30 as sourced), provisional |
 
 Answered by the maintainer: Q-M1 (received power, dBm), Q-M3 (one call per entity), Q-M4 (no
 input file — function call with parameters). Also still open from *Deferred Decisions → MATLAB
-Interface*: MCR version, DSM vs bare-earth terrain.
+Interface*: MCR version, DSM vs bare-earth terrain (now Q-M9).
 
 ---
 
@@ -465,7 +466,7 @@ agent implements it.
 |---|---|---|
 | TBD-1 (#49) | **Beam width and recalculation** | Beam width is part of the recalculation logic (TBD-2): which level a beam-width change triggers, and whether beam width can be edited after a run. Must be reconciled with "gain applied at slice time". |
 | TBD-2 (#43) | **Re-run and recalculation levels** | **Decided** — see *Re-run and Recalculation Levels*. |
-| TBD-3 (#44) | **Engine interface** | **Signed off** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open only: MATLAB-developer questions Q-M2, Q-M5–Q-M8 (fake engine uses defaults). |
+| TBD-3 (#44) | **Engine interface** | **Signed off** — see *Engine Interface*. Decided: every parameter goes in; one call per entity; function call with parameters; output = received-power matrix written by MATLAB to HDF5. Open only: MATLAB-developer questions Q-M2, Q-M5–Q-M9 (fake engine uses defaults). |
 | TBD-4 (#50) | **Reusing what a failed/cancelled run left** | Reuse terrain profiles, coordinate arrays and completed engine output from an earlier run when still valid. Open: how validity is checked, disk budget and eviction, whether the MATLAB model is deterministic. |
 | TBD-5 (#51) | **Cancel from the browser** | Cancel button next to the progress bar. Open: keep partial results (user's choice?) vs discard; behaviour when queued vs running; killing MATLAB's whole process tree. |
 | TBD-6 (#45) | **Per-run parameter store format** | **Decided** — see *Per-Run Store*: one HDF5 file per run, per run (not per scenario), coordinate arrays computed on demand, failed/cancelled folders deleted. |
@@ -504,7 +505,8 @@ demonstrates the end-to-end thin slice.
 - Geoid correction: does MATLAB expect AMSL heights (DEM-native) or HAE (GPS-derived)?
 Silent mismatch produces incorrect terrain profiles.
 - Canopy vs bare earth: Copernicus DEM is a DSM (measures vegetation top), not DTM
-(bare earth). Which does the propagation model expect?
+(bare earth). Which does the propagation model expect? Maintainer (#36, 2026-10-11): use
+the DSM for now; asked of the MATLAB developer as Q-M9.
 - Polar edge tiles: confirm tile naming and manifest structure above ~80° latitude
 - VRT rebuild strategy: at every container startup (recommended) vs only on tile set change
 
